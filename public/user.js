@@ -14,14 +14,6 @@ const equipmentHelp = document.getElementById('equipmentHelp');
 const ticketCategorySelect = document.getElementById('ticketCategory');
 const reporterUsernameInput = document.getElementById('reporterUsername');
 const reporterUsernameDisplay = document.getElementById('reporterUsernameDisplay');
-const aiChatToggle = document.getElementById('aiChatToggle');
-const aiChatPanel = document.getElementById('aiChatPanel');
-const aiChatClose = document.getElementById('aiChatClose');
-const aiChatMessages = document.getElementById('aiChatMessages');
-const aiChatForm = document.getElementById('aiChatForm');
-const aiChatInput = document.getElementById('aiChatInput');
-const aiChatSend = document.getElementById('aiChatSend');
-const aiChatHistory = [];
 
 // -----------------------------------------------------
 // ส่วนตั้งค่า Theme
@@ -35,66 +27,6 @@ function applyTheme(theme) {
 
 const savedTheme = localStorage.getItem('helpdeskTheme') || 'light';
 applyTheme(savedTheme);
-
-function addChatMessage(text, role) {
-  const message = document.createElement('div');
-  message.className = role === 'user'
-    ? 'max-w-[85%] self-end rounded-2xl rounded-tr-sm bg-blue-600 px-3 py-2 text-sm text-white shadow-sm'
-    : 'max-w-[85%] self-start rounded-2xl rounded-tl-sm bg-white px-3 py-2 text-sm text-slate-700 shadow-sm';
-  message.textContent = text;
-  aiChatMessages.appendChild(message);
-  aiChatMessages.scrollTop = aiChatMessages.scrollHeight;
-}
-
-aiChatToggle.addEventListener('click', () => {
-  aiChatPanel.classList.remove('hidden');
-  aiChatPanel.classList.remove('chat-closing');
-  aiChatPanel.classList.add('chat-opening');
-  aiChatToggle.classList.add('hidden');
-  window.setTimeout(() => aiChatPanel.classList.remove('chat-opening'), 240);
-  aiChatInput.focus();
-});
-
-aiChatClose.addEventListener('click', () => {
-  aiChatPanel.classList.remove('chat-opening');
-  aiChatPanel.classList.add('chat-closing');
-  window.setTimeout(() => {
-    aiChatPanel.classList.add('hidden');
-    aiChatPanel.classList.remove('chat-closing');
-    aiChatToggle.classList.remove('hidden');
-  }, 190);
-});
-
-aiChatForm.addEventListener('submit', async (event) => {
-  event.preventDefault();
-  const question = aiChatInput.value.trim();
-  if (!question || aiChatSend.disabled) return;
-
-  addChatMessage(question, 'user');
-  aiChatHistory.push({ role: 'user', text: question });
-  aiChatInput.value = '';
-  aiChatSend.disabled = true;
-  aiChatSend.textContent = '...';
-
-  try {
-    const response = await fetch('/api/ai/ask', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question, history: aiChatHistory.slice(-10) })
-    });
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.error || 'ไม่สามารถติดต่อผู้ช่วย AI ได้');
-
-    addChatMessage(result.answer, 'model');
-    aiChatHistory.push({ role: 'model', text: result.answer });
-  } catch (error) {
-    addChatMessage(error.message, 'model');
-  } finally {
-    aiChatSend.disabled = false;
-    aiChatSend.textContent = 'ส่ง';
-    aiChatInput.focus();
-  }
-});
 
 themeToggleButton.addEventListener('click', () => {
   const nextTheme = document.body.classList.contains('dark-mode') ? 'light' : 'dark';

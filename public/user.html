@@ -182,43 +182,6 @@
       box-shadow: 0 14px 32px rgba(2, 6, 23, 0.42) !important;
     }
 
-    #aiChatPanel {
-      transform-origin: bottom right;
-    }
-
-    #aiChatPanel.hidden {
-      display: none;
-    }
-
-    #aiChatPanel.chat-opening {
-      animation: ai-chat-open 220ms ease-out both;
-    }
-
-    #aiChatPanel.chat-closing {
-      animation: ai-chat-close 180ms ease-in both;
-      pointer-events: none;
-    }
-
-    @keyframes ai-chat-open {
-      from { opacity: 0; transform: translateY(14px) scale(0.94); }
-      to { opacity: 1; transform: translateY(0) scale(1); }
-    }
-
-    @keyframes ai-chat-close {
-      from { opacity: 1; transform: translateY(0) scale(1); }
-      to { opacity: 0; transform: translateY(10px) scale(0.96); }
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-      #aiChatPanel.chat-opening,
-      #aiChatPanel.chat-closing {
-        animation-duration: 1ms;
-      }
-    }
-
-    #aiChatMessages {
-      scrollbar-width: thin;
-    }
   </style>
 </head>
 <body class="min-h-screen text-slate-800">
@@ -296,30 +259,6 @@
       </section>
     </div>
   </div>
-
-  <button id="aiChatToggle" type="button" aria-label="เปิดผู้ช่วย AI" class="fixed bottom-6 right-6 z-20 rounded-full bg-gradient-to-r from-violet-600 to-blue-600 px-5 py-4 text-white shadow-2xl hover:scale-105 transition-transform">
-    <span class="text-xl">💬</span>
-    <span class="ml-2 font-semibold">ถามผู้ช่วย AI</span>
-  </button>
-
-  <section id="aiChatPanel" class="hidden fixed bottom-6 right-6 z-30 w-[min(92vw,380px)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
-    <div class="flex items-center justify-between bg-gradient-to-r from-violet-600 to-blue-600 px-4 py-3 text-white">
-      <div>
-        <h2 class="font-semibold">ผู้ช่วย IT</h2>
-        <p class="text-xs text-blue-100">สอบถามปัญหาอุปกรณ์เบื้องต้น</p>
-      </div>
-      <button id="aiChatClose" type="button" aria-label="ปิดหน้าต่างแชท" class="rounded-lg px-2 py-1 text-xl hover:bg-white/20">×</button>
-    </div>
-    <div id="aiChatMessages" class="flex h-80 flex-col gap-3 overflow-y-auto bg-slate-50 p-4">
-      <div class="max-w-[85%] self-start rounded-2xl rounded-tl-sm bg-white px-3 py-2 text-sm text-slate-700 shadow-sm">
-        สวัสดีครับ มีปัญหาอุปกรณ์หรือระบบ IT อะไรให้ช่วยตรวจสอบเบื้องต้นไหมครับ
-      </div>
-    </div>
-    <form id="aiChatForm" class="flex gap-2 border-t border-slate-200 bg-white p-3">
-      <input id="aiChatInput" type="text" maxlength="4000" autocomplete="off" placeholder="พิมพ์คำถาม..." class="min-w-0 flex-1 rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" required />
-      <button id="aiChatSend" type="submit" class="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50">ส่ง</button>
-    </form>
-  </section>
 
   <script src="user.js"></script>
 </body>
