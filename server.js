@@ -19,6 +19,7 @@ const DB_PASSWORD = process.env.DB_PASSWORD || '';
 const DB_NAME = process.env.DB_NAME || 'hospital_helpdesk';
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
+const ENABLE_DEMO_ACCOUNTS = process.env.ENABLE_DEMO_ACCOUNTS === 'true';
 
 // -----------------------------------------------------
 // ส่วน helper สำหรับ hash password
@@ -99,7 +100,7 @@ async function ensureDatabaseSchema() {
 
 // -----------------------------------------------------
 // ส่วน seed ข้อมูลเริ่มต้น
-// - สร้าง admin default account
+// - สร้าง admin demo accounts only when explicitly enabled
 // - เพิ่มข้อมูลอุปกรณ์เริ่มต้นลงในระบบ
 // -----------------------------------------------------
 async function seedInitialData() {
@@ -111,17 +112,14 @@ async function seedInitialData() {
       { username: 'admin05', password: 'admin123', fullName: 'Nattapong IT', department: 'IT Support' }
     ];
 
-    for (const admin of admins) {
-      await db.query(
-        `INSERT INTO users (username, password_hash, full_name, role, department)
-         VALUES (?, ?, ?, 'admin', ?)
-         ON DUPLICATE KEY UPDATE
-           password_hash = VALUES(password_hash),
-           full_name = VALUES(full_name),
-           role = VALUES(role),
-           department = VALUES(department)`,
-        [admin.username, hashPassword(admin.password), admin.fullName, admin.department]
-      );
+    if (ENABLE_DEMO_ACCOUNTS) {
+      for (const admin of admins) {
+        await db.query(
+          `INSERT IGNORE INTO users (username, password_hash, full_name, role, department)
+           VALUES (?, ?, ?, 'admin', ?)`,
+          [admin.username, hashPassword(admin.password), admin.fullName, admin.department]
+        );
+      }
     }
 
     const equipments = [
@@ -162,7 +160,10 @@ async function seedInitialData() {
       );
     }
 
-    console.log('Ensured initial equipments and admin users exist in database');
+    console.log('Ensured initial equipments exist in database');
+    if (ENABLE_DEMO_ACCOUNTS) {
+      console.warn('Demo accounts are enabled. Do not enable them on a public deployment.');
+    }
   } catch (err) {
     console.warn('Could not seed initial database data:', err.message || err);
   }
@@ -491,7 +492,7 @@ app.delete('/api/admin/notifications', (_req, res) => {
 // -----------------------------------------------------
 // ส่วน login API
 // - ตรวจสอบ username/password จากฐานข้อมูลก่อน
-// - fallback ไปที่ DEMO_USERS หากไม่พบใน DB
+// - fallback ไปที่ DEMO_USERS เฉพาะเมื่อเปิดใช้งาน demo accounts อย่างชัดเจน
 // -----------------------------------------------------
 app.post('/api/login', async (req, res) => {
   try {
@@ -518,7 +519,7 @@ app.post('/api/login', async (req, res) => {
       });
     }
 
-    const userRecord = DEMO_USERS[username];
+    const userRecord = ENABLE_DEMO_ACCOUNTS ? DEMO_USERS[username] : null;
     if (!userRecord || userRecord.password !== password) {
       return res.status(401).json({ error: 'ชื่อผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง' });
     }
