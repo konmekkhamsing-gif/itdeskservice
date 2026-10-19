@@ -1,0 +1,16 @@
+{
+  "name": "hospital-helpdesk-system",
+  "version": "1.0.0",
+  "description": "Hospital Equipment Helpdesk System backend and frontend",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "exceljs": "^4.4.0",
+    "express": "^4.21.2",
+    "mysql2": "^3.5.0"
+  }
+}

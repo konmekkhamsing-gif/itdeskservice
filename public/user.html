@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ระบบช่วยเหลืออุปกรณ์โรงพยาบาลเชียงคาน - หน้า User</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/motion.css" />
+  <style>
+    :root {
+      color-scheme: light;
+    }
+
+    body {
+      background:
+        radial-gradient(ellipse at 12% 8%, rgba(56, 189, 248, 0.28), transparent 34%),
+        radial-gradient(ellipse at 88% 38%, rgba(45, 212, 191, 0.2), transparent 32%),
+        radial-gradient(ellipse at 48% 100%, rgba(99, 102, 241, 0.12), transparent 38%),
+        linear-gradient(145deg, #f8fbff 0%, #edf6ff 48%, #eefaf8 100%);
+      background-attachment: fixed;
+      font-family: Inter, "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      background-image: radial-gradient(rgba(14, 116, 144, 0.11) 0.7px, transparent 0.7px);
+      background-size: 24px 24px;
+      opacity: 0.28;
+      pointer-events: none;
+    }
+
+    body::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      background:
+        radial-gradient(circle at 5% 55%, rgba(14, 165, 233, 0.1), transparent 20rem),
+        radial-gradient(circle at 95% 8%, rgba(20, 184, 166, 0.11), transparent 18rem);
+      pointer-events: none;
+    }
+
+    .glass-card {
+      backdrop-filter: blur(12px);
+      background: rgba(255, 255, 255, 0.92);
+      box-shadow: 0 22px 60px rgba(15, 23, 42, 0.12);
+    }
+
+    .ticket-card {
+      background: linear-gradient(180deg, rgba(248, 250, 252, 0.95), rgba(255,255,255,1));
+      box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
+    }
+
+    body.dark-mode {
+      color: #e2e8f0;
+      background:
+        radial-gradient(ellipse at 12% 8%, rgba(14, 165, 233, 0.17), transparent 34%),
+        radial-gradient(ellipse at 88% 38%, rgba(13, 148, 136, 0.14), transparent 32%),
+        radial-gradient(ellipse at 48% 100%, rgba(79, 70, 229, 0.12), transparent 38%),
+        linear-gradient(145deg, #020617 0%, #0b1729 48%, #0b1e24 100%);
+      background-attachment: fixed;
+    }
+
+    body.dark-mode::before {
+      background-image: radial-gradient(rgba(148, 163, 184, 0.14) 0.7px, transparent 0.7px);
+      opacity: 0.2;
+    }
+
+    body.dark-mode::after {
+      background:
+        radial-gradient(circle at 5% 55%, rgba(14, 165, 233, 0.08), transparent 20rem),
+        radial-gradient(circle at 95% 8%, rgba(20, 184, 166, 0.08), transparent 18rem);
+    }
+
+    body.dark-mode .glass-card,
+    body.dark-mode .ticket-card {
+      background: rgba(15, 23, 42, 0.92);
+      border-color: #334155 !important;
+      box-shadow: 0 20px 60px rgba(2, 6, 23, 0.42);
+    }
+
+    body.dark-mode .text-slate-800,
+    body.dark-mode .text-slate-700,
+    body.dark-mode .text-slate-600,
+    body.dark-mode .text-slate-500,
+    body.dark-mode .text-slate-900 {
+      color: #f8fafc !important;
+    }
+
+    body.dark-mode .text-slate-500 {
+      color: #b8b894 !important;
+    }
+
+    body.dark-mode .text-emerald-700,
+    body.dark-mode .text-emerald-600,
+    body.dark-mode .text-emerald-500 {
+      color: #020301 !important;
+    }
+
+    body.dark-mode .text-blue-700,
+    body.dark-mode .text-blue-600,
+    body.dark-mode .text-blue-500 {
+      color: #002c62 !important;
+    }
+
+    body.dark-mode .text-amber-700,
+    body.dark-mode .text-amber-600,
+    body.dark-mode .text-amber-500 {
+      color: #fde68a !important;
+    }
+
+    body.dark-mode .border-slate-200,
+    body.dark-mode .border-slate-300,
+    body.dark-mode .border-slate-100 {
+      border-color: #334155 !important;
+    }
+
+    body.dark-mode .bg-slate-50,
+    body.dark-mode .bg-slate-100,
+    body.dark-mode .bg-white,
+    body.dark-mode .bg-slate-50\/80 {
+      background: #0f172a !important;
+    }
+  /* ช่องticket หมายเหตุแจ้งซ่อม*/
+    body.dark-mode .ticket-card .bg-emerald-50 {
+      background: #ecfdf5 !important;
+      border-color: #a7f3d0 !important;
+    }
+
+    body.dark-mode .ticket-card .bg-emerald-50 .text-slate-700,
+    body.dark-mode .ticket-card .bg-emerald-50 .text-slate-800,
+    body.dark-mode .ticket-card .bg-emerald-50 p {
+      color: #111827 !important;
+    }
+    /* หมายดหตุแจ้งซ่อม */
+    body.dark-mode .ticket-card .bg-emerald-50 .text-emerald-700 {
+      color: #047857 !important;
+    }
+
+    body.dark-mode label {
+      color: #f8fafc !important;
+    }
+
+    body.dark-mode input,
+    body.dark-mode textarea,
+    body.dark-mode select {
+      background: #0f172a !important;
+      color: #e2e8f0 !important;
+      border-color: #334155 !important;
+    }
+
+    body.dark-mode select option {
+      background: #0f172a !important;
+      color: #e2e8f0 !important;
+    }
+
+    /* ป้ายชื่อผู้ใช้งาน (username pill) - default */
+    #reporterUsernameDisplay {
+      display: inline-block;
+      padding: .25rem .75rem;
+      border-radius: 9999px;
+      background: #eff6ff; /* Tailwind blue-50 */
+      color: #075985; /* Tailwind blue-800 (slightly darker for contrast) */
+      font-weight: 600;
+      font-size: 0.875rem;
+      line-height: 1;
+    }
+
+    /* dark mode override ให้ pill เด่นบนพื้นหลังมืด */
+    body.dark-mode #reporterUsernameDisplay {
+      background: rgba(59,130,246,0.12); /* สีน้ำเงินจาง */
+      color: #bfdbfe; /* ฟ้าอ่อน ให้เห็นบนพื้นหลังมืด */
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+
+    body.dark-mode .shadow-sm,
+    body.dark-mode .shadow-lg,
+    body.dark-mode .shadow-xl {
+      box-shadow: 0 14px 32px rgba(2, 6, 23, 0.42) !important;
+    }
+
+    #aiChatPanel {
+      transform-origin: bottom right;
+    }
+
+    #aiChatPanel.hidden {
+      display: none;
+    }
+
+    #aiChatPanel.chat-opening {
+      animation: ai-chat-open 220ms ease-out both;
+    }
+
+    #aiChatPanel.chat-closing {
+      animation: ai-chat-close 180ms ease-in both;
+      pointer-events: none;
+    }
+
+    @keyframes ai-chat-open {
+      from { opacity: 0; transform: translateY(14px) scale(0.94); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    @keyframes ai-chat-close {
+      from { opacity: 1; transform: translateY(0) scale(1); }
+      to { opacity: 0; transform: translateY(10px) scale(0.96); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      #aiChatPanel.chat-opening,
+      #aiChatPanel.chat-closing {
+        animation-duration: 1ms;
+      }
+    }
+
+    #aiChatMessages {
+      scrollbar-width: thin;
+    }
+  </style>
+</head>
+<body class="min-h-screen text-slate-800">
+  <div class="max-w-6xl mx-auto py-8 px-4 relative z-10">
+    <div class="rounded-[30px] bg-gradient-to-r from-sky-800 to-cyan-700 text-white shadow-2xl p-6 mb-6 border border-white/20">
+      <div class="flex justify-between items-center gap-4 flex-wrap">
+        <div class="flex items-center gap-4">
+          
+          <div>
+            <h1 class="text-3xl font-bold">ระบบช่วยเหลืออุปกรณ์โรงพยาบาลเชียงคาน</h1>
+            <p class="text-sky-100 mt-2">ส่งเรื่องแจ้งซ่อมอุปกรณ์ได้อย่างรวดเร็วและสะดวก</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="themeToggleButton" class="bg-white/15 border border-white/30 text-white px-4 py-2 rounded-xl hover:bg-white/25 hover:-translate-y-0.5 transition-all duration-200">🌙 Dark Mode</button>
+          <button id="logoutButton" class="bg-white/15 border border-white/30 text-white px-4 py-2 rounded-xl hover:bg-white/25 hover:-translate-y-0.5 transition-all duration-200">ออกจากระบบ</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="max-w-2xl mx-auto">
+      <section class="glass-card rounded-[30px] p-6 ring-1 ring-slate-100/80">
+        <div class="flex items-center justify-between gap-3 mb-4 flex-wrap">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-sky-100 text-sky-700 flex items-center justify-center text-xl">📝</div>
+            <div>
+              <h2 class="text-xl font-semibold">สร้าง Ticket ใหม่</h2>
+              <p class="text-sm text-slate-500">หากต้องการดูสถานะ Ticket ของคุณ ให้ไปที่หน้าสถานะของฉัน</p>
+            </div>
+          </div>
+          <a href="/user-tickets.html" class="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">ดูสถานะ Ticket ของฉัน</a>
+        </div>
+        <form id="ticketForm" class="space-y-4">
+          <input type="hidden" name="userId" id="userIdInput" />
+
+          <div>
+            <label for="equipmentCode" class="block text-sm font-medium text-slate-700">รหัสอุปกรณ์</label>
+            <select id="equipmentCode" name="equipmentCode" required class="mt-1 w-full border border-slate-300 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-cyan-500 bg-white/90 shadow-sm">
+              <option value="" disabled selected>กำลังโหลดรายการอุปกรณ์...</option>
+            </select>
+            <p id="equipmentHelp" class="mt-2 text-xs text-slate-500">เลือกอุปกรณ์จากแผนกของคุณ</p>
+          </div>
+
+          <div>
+            <label for="issueDetail" class="block text-sm font-medium text-slate-700">รายละเอียดปัญหา</label>
+            <textarea id="issueDetail" name="issueDetail" rows="5" required class="mt-1 w-full border border-slate-300 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-cyan-500 bg-white/90 shadow-sm" placeholder="อธิบายปัญหาของอุปกรณ์"></textarea>
+          </div>
+
+          <div>
+            <label for="ticketCategory" class="block text-sm font-medium text-slate-700">ประเภทปัญหา</label>
+            <select id="ticketCategory" name="ticketCategory" required class="mt-1 w-full border border-slate-300 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-cyan-500 bg-white/90 shadow-sm">
+              <option value="hardware">Hardware</option>
+              <option value="software">Software</option>
+            </select>
+            <p class="mt-2 text-xs text-slate-500">เลือกว่าปัญหานี้เป็นฮาร์ดแวร์หรือซอฟต์แวร์</p>
+          </div>
+
+          <div>
+            <label for="reporterName" class="block text-sm font-medium text-slate-700">ชื่อคนแจ้ง (ชื่อจริง)</label>
+            <input id="reporterName" name="reporterName" type="text" required class="mt-1 w-full border border-slate-300 rounded-xl p-3 bg-white/90 shadow-sm" placeholder="เช่น สมชาย" />
+            <p class="mt-2 text-xs text-slate-500">กรอกชื่อจริงของผู้แจ้งเพื่อให้แอดมินเห็น ไม่จำเป็นต้องตรงกับชื่อผู้ใช้งาน</p>
+          </div>
+          <div>
+            <div class="flex items-center gap-3">
+              <label for="reporterUsernameDisplay" class="text-sm font-medium text-slate-700">ชื่อผู้ใช้งานผู้แจ้ง</label>
+              <span id="reporterUsernameDisplay" class="text-sm font-semibold text-blue-600 bg-blue-50 px-3 py-1 rounded-full">-</span>
+            </div>
+            <input id="reporterUsername" name="reporterUsername" type="hidden" />
+            <!-- <p class="mt-2 text-xs text-slate-500">ชื่อผู้ใช้งานของผู้แจ้ง</p> -->
+          </div>
+
+          <button type="submit" class="w-full bg-gradient-to-r from-blue-600 to-cyan-500 text-white px-5 py-3 rounded-xl font-medium hover:opacity-95 hover:-translate-y-0.5 transition-all duration-200 shadow-lg">ส่ง Ticket</button>
+        </form>
+        <p id="ticketMessage" class="mt-4 text-sm"></p>
+      </section>
+    </div>
+  </div>
+
+  <button id="aiChatToggle" type="button" aria-label="เปิดผู้ช่วย AI" class="fixed bottom-6 right-6 z-20 rounded-full bg-gradient-to-r from-violet-600 to-blue-600 px-5 py-4 text-white shadow-2xl hover:scale-105 transition-transform">
+    <span class="text-xl">💬</span>
+    <span class="ml-2 font-semibold">ถามผู้ช่วย AI</span>
+  </button>
+
+  <section id="aiChatPanel" class="hidden fixed bottom-6 right-6 z-30 w-[min(92vw,380px)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+    <div class="flex items-center justify-between bg-gradient-to-r from-violet-600 to-blue-600 px-4 py-3 text-white">
+      <div>
+        <h2 class="font-semibold">ผู้ช่วย IT</h2>
+        <p class="text-xs text-blue-100">สอบถามปัญหาอุปกรณ์เบื้องต้น</p>
+      </div>
+      <button id="aiChatClose" type="button" aria-label="ปิดหน้าต่างแชท" class="rounded-lg px-2 py-1 text-xl hover:bg-white/20">×</button>
+    </div>
+    <div id="aiChatMessages" class="flex h-80 flex-col gap-3 overflow-y-auto bg-slate-50 p-4">
+      <div class="max-w-[85%] self-start rounded-2xl rounded-tl-sm bg-white px-3 py-2 text-sm text-slate-700 shadow-sm">
+        สวัสดีครับ มีปัญหาอุปกรณ์หรือระบบ IT อะไรให้ช่วยตรวจสอบเบื้องต้นไหมครับ
+      </div>
+    </div>
+    <form id="aiChatForm" class="flex gap-2 border-t border-slate-200 bg-white p-3">
+      <input id="aiChatInput" type="text" maxlength="4000" autocomplete="off" placeholder="พิมพ์คำถาม..." class="min-w-0 flex-1 rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" required />
+      <button id="aiChatSend" type="submit" class="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50">ส่ง</button>
+    </form>
+  </section>
+
+  <script src="user.js"></script>
+</body>
+</html>

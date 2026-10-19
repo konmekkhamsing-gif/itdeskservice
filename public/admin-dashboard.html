@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ระบบช่วยเหลืออุปกรณ์โรงพยาบาล - Dashboard Admin</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/motion.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      color-scheme: light;
+    }
+
+    body {
+      background:
+        radial-gradient(circle at top right, rgba(34, 197, 94, 0.18), transparent 30%),
+        radial-gradient(circle at left center, rgba(56, 189, 248, 0.14), transparent 24%),
+        linear-gradient(180deg, #f8fafc 0%, #eef6f3 100%);
+      font-family: Inter, "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(255,255,255,0.35), transparent 22%);
+      pointer-events: none;
+    }
+
+    .glass-card {
+      backdrop-filter: blur(12px);
+      background: rgba(255, 255, 255, 0.92);
+      box-shadow: 0 22px 60px rgba(15, 23, 42, 0.12);
+    }
+
+    .stat-card {
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 18px 42px rgba(15, 23, 42, 0.12);
+    }
+
+    /* Repair note and completed status overrides */
+    .repair-note {
+      background: linear-gradient(180deg,#f8fafc,#ffffff);
+      color: #0f172a;
+      border: 1px solid #e6e6e6 !important;
+    }
+
+    .status-completed {
+      background: #ffffff !important;
+      color: #0f172a !important;
+      border: 1px solid rgba(0,0,0,0.06) !important;
+    }
+
+    /* keep these styles in dark-mode (force light appearance for these elements) */
+    body.dark-mode .repair-note,
+    body.dark-mode .status-completed {
+      background: linear-gradient(180deg,#f1f5f9,#ffffff) !important;
+      color: #0f172a !important;
+      border-color: #e6e6e6 !important;
+    }
+
+    body.dark-mode {
+      color: #e2e8f0;
+      background:
+        radial-gradient(circle at top left, rgba(56, 189, 248, 0.12), transparent 35%),
+        radial-gradient(circle at bottom right, rgba(45, 212, 191, 0.12), transparent 28%),
+        linear-gradient(180deg, #020617 0%, #0f172a 100%);
+    }
+
+    body.dark-mode .glass-card {
+      background: rgba(15, 23, 42, 0.92);
+      border-color: #334155 !important;
+      box-shadow: 0 20px 60px rgba(2, 6, 23, 0.42);
+    }
+
+    /* Make admin dark mode colors match user dark mode */
+    body.dark-mode .text-slate-800,
+    body.dark-mode .text-slate-700,
+    body.dark-mode .text-slate-600,
+    body.dark-mode .text-slate-500,
+    body.dark-mode .text-slate-900 {
+      color: #f8fafc !important;
+    }
+
+    body.dark-mode .text-slate-500 {
+      color: #b8b894 !important;
+    }
+
+    body.dark-mode .text-emerald-700,
+    body.dark-mode .text-emerald-600,
+    body.dark-mode .text-emerald-500 {
+      color: #020301 !important;
+    }
+
+    body.dark-mode .text-blue-700,
+    body.dark-mode .text-blue-600,
+    body.dark-mode .text-blue-500 {
+      color: #002c62 !important;
+    }
+
+    body.dark-mode .text-amber-700,
+    body.dark-mode .text-amber-600,
+    body.dark-mode .text-amber-500 {
+      color: #fde68a !important;
+    }
+
+    body.dark-mode .border-slate-200,
+    body.dark-mode .border-slate-300,
+    body.dark-mode .border-slate-100 {
+      border-color: #334155 !important;
+    }
+
+    body.dark-mode .bg-slate-50,
+    body.dark-mode .bg-slate-100,
+    body.dark-mode .bg-white,
+    body.dark-mode .bg-slate-50\/80 {
+      background: #0f172a !important;
+    }
+
+    /* ticket-note style parity */
+    body.dark-mode .ticket-card .bg-emerald-50 {
+      background: #ecfdf5 !important;
+      border-color: #a7f3d0 !important;
+    }
+
+    body.dark-mode .ticket-card .bg-emerald-50 .text-slate-700,
+    body.dark-mode .ticket-card .bg-emerald-50 .text-slate-800,
+    body.dark-mode .ticket-card .bg-emerald-50 p {
+      color: #111827 !important;
+    }
+
+    body.dark-mode .ticket-card .bg-emerald-50 .text-emerald-700 {
+      color: #047857 !important;
+    }
+
+    body.dark-mode input,
+    body.dark-mode textarea {
+      background: #0f172a !important;
+      color: #e2e8f0 !important;
+      border-color: #334155 !important;
+    }
+
+    body.dark-mode .shadow-sm,
+    body.dark-mode .shadow-lg,
+    body.dark-mode .shadow-xl {
+      box-shadow: 0 14px 32px rgba(2, 6, 23, 0.42) !important;
+    }
+  /* Notification card styles */
+  .notification-card {
+    transition: background-color 0.15s ease, color 0.15s ease;
+  }
+  .notification-card .title { color: inherit; }
+  .notification-card .meta { color: rgba(15,23,42,0.6); }
+  body.dark-mode .notification-card {
+    background: rgba(2,6,23,0.6) !important; /* dark card */
+    border-color: rgba(255,255,255,0.06) !important;
+    color: #e2e8f0 !important;
+  }
+  body.dark-mode .notification-card .meta { color: rgba(226,232,240,0.6) !important; }
+  body.dark-mode .notification-card .title { color: #f8fafc !important; }
+  </style>
+</head>
+<body class="min-h-screen text-slate-800">
+  <div class="max-w-7xl mx-auto py-8 px-4 relative z-10">
+    <div class="rounded-[30px] bg-gradient-to-r from-emerald-800 to-teal-700 text-white shadow-2xl p-6 mb-6 border border-white/20">
+      <div class="flex justify-between items-center gap-4 flex-wrap">
+        <div class="flex items-center gap-4">
+          
+          <div>
+            <h1 class="text-3xl font-bold">แดชบอร์ด Admin</h1>
+            <p class="text-emerald-100 mt-2">สรุปข้อมูล Ticket และ KPI สำหรับทีมไอที</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="themeToggleButton" class="bg-white/15 border border-white/30 text-white px-4 py-2 rounded-xl hover:bg-white/25 hover:-translate-y-0.5 transition-all duration-200">🌙 Dark Mode</button>
+          <a href="/admin.html" class="bg-white/15 border border-white/30 text-white px-4 py-2 rounded-xl hover:bg-white/25 hover:-translate-y-0.5 transition-all duration-200">จัดการ Ticket</a>
+          <button id="logoutButton" class="bg-white/15 border border-white/30 text-white px-4 py-2 rounded-xl hover:bg-white/25 hover:-translate-y-0.5 transition-all duration-200">ออกจากระบบ</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="glass-card rounded-[28px] p-4 mb-6 ring-1 ring-slate-100/80">
+      <div class="flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="text-sm font-semibold text-slate-700">แจ้งเตือนระบบ</span>
+            <span id="notificationBadge" class="rounded-full bg-rose-500 text-white px-2 py-0.5 text-xs font-semibold">0</span>
+          </div>
+          <p class="text-sm text-slate-500 mt-1">เมื่อมี user ส่ง ticket ใหม่เข้ามาแอดมินจะเห็นข้อความแจ้งเตือนทันที</p>
+        </div>
+        <button id="clearNotificationsButton" class="text-sm text-slate-600 border border-slate-200 px-3 py-2 rounded-xl hover:bg-slate-50 hover:-translate-y-0.5 transition-all duration-200">เคลียร์แจ้งเตือน</button>
+      </div>
+      <div id="notificationList" class="mt-4 space-y-2"></div>
+    </div>
+
+    <div class="grid md:grid-cols-5 gap-4 mb-6">
+      <div class="stat-card glass-card rounded-2xl p-4 border border-slate-100">
+        <div class="text-sm text-slate-500">Ticket ทั้งหมด</div>
+        <div id="totalTickets" class="text-2xl font-bold text-slate-800">0</div>
+      </div>
+      <div class="stat-card glass-card rounded-2xl p-4 border border-slate-100">
+        <div class="text-sm text-slate-500">รอรับงาน</div>
+        <div id="pendingTickets" class="text-2xl font-bold text-amber-600">0</div>
+      </div>
+      <div class="stat-card glass-card rounded-2xl p-4 border border-slate-100">
+        <div class="text-sm text-slate-500">กำลังซ่อม</div>
+        <div id="inProgressTickets" class="text-2xl font-bold text-blue-600">0</div>
+      </div>
+      <div class="stat-card glass-card rounded-2xl p-4 border border-slate-100">
+        <div class="text-sm text-slate-500">เสร็จสิ้น</div>
+        <div id="completedTickets" class="text-2xl font-bold text-emerald-600">0</div>
+      </div>
+      <div class="stat-card glass-card rounded-2xl p-4 border border-slate-100">
+        <div class="text-sm text-slate-500">แยก Hardware/Software</div>
+        <div class="mt-2 space-y-2 text-slate-800" id="categorySummary">
+          <div>Hardware: 0</div>
+          <div>Software: 0</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid lg:grid-cols-3 gap-4 mb-6">
+      <div class="glass-card rounded-2xl p-4 border border-slate-100">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="font-semibold text-slate-800">สัดส่วนสถานะ Ticket</h2>
+          <span class="text-xs text-slate-500">Ticket Status</span>
+        </div>
+        <div class="relative h-64">
+          <canvas id="statusChart" aria-label="กราฟสัดส่วนสถานะ Ticket"></canvas>
+        </div>
+      </div>
+      <div class="glass-card rounded-2xl p-4 border border-slate-100">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="font-semibold text-slate-800">จำนวน Ticket ตามแผนก</h2>
+          <span class="text-xs text-slate-500">Tickets by Department</span>
+        </div>
+        <div class="relative h-64">
+          <canvas id="departmentChart" aria-label="กราฟจำนวน Ticket ตามแผนก"></canvas>
+        </div>
+      </div>
+      <div class="glass-card rounded-2xl p-4 border border-slate-100">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="font-semibold text-slate-800">จำนวน Ticket ตามประเภทปัญหา</h2>
+          <span class="text-xs text-slate-500">Issue Category</span>
+        </div>
+        <div class="relative h-64">
+          <canvas id="categoryChart" aria-label="กราฟจำนวน Ticket ตามประเภทปัญหา"></canvas>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="grid lg:grid-cols-3 gap-4 mb-6">
+      <div class="glass-card rounded-2xl p-4 border border-slate-100">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="font-semibold text-slate-800">แผนกที่แจ้งซ่อมบ่อยที่สุด</h2>
+          <span class="text-xs text-slate-500">Top Department</span>
+        </div>
+        <div id="departmentAnalytics" class="space-y-3"></div>
+      </div>
+      <div class="glass-card rounded-2xl p-4 border border-slate-100">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="font-semibold text-slate-800">อุปกรณ์ที่มีปัญหาบ่อยที่สุด</h2>
+          <span class="text-xs text-slate-500">Top Equipment Type</span>
+        </div>
+        <div id="equipmentAnalytics" class="space-y-3"></div>
+      </div>
+      <div class="glass-card rounded-2xl p-4 border border-slate-100">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="font-semibold text-slate-800">SLA เฉลี่ย</h2>
+          <span class="text-xs text-slate-500">Average Resolution Time</span>
+        </div>
+        <div class="rounded-2xl bg-emerald-50 border border-emerald-100 p-4 text-center shadow-inner">
+          <div id="slaAnalytics" class="text-3xl font-bold text-emerald-700">0.00</div>
+          <div class="text-sm text-slate-500 mt-2">ชั่วโมง</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="admin-dashboard.js"></script>
+</body>
+</html>

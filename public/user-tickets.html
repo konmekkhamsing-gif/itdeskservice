@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>สถานะ Ticket ของฉัน - ระบบช่วยเหลืออุปกรณ์</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/motion.css" />
+  <style>
+    :root {
+      color-scheme: light;
+    }
+
+    body {
+      background:
+        radial-gradient(circle at top left, rgba(56, 189, 248, 0.24), transparent 35%),
+        radial-gradient(circle at bottom right, rgba(45, 212, 191, 0.2), transparent 28%),
+        linear-gradient(180deg, #f8fbff 0%, #eef4ff 100%);
+      font-family: Inter, "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(255,255,255,0.35), transparent 28%);
+      pointer-events: none;
+    }
+
+    .glass-card {
+      backdrop-filter: blur(12px);
+      background: rgba(255, 255, 255, 0.92);
+      box-shadow: 0 22px 60px rgba(15, 23, 42, 0.12);
+    }
+
+    .ticket-card {
+      background: linear-gradient(180deg, rgba(248, 250, 252, 0.95), rgba(255,255,255,1));
+      box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
+    }
+
+    body.dark-mode {
+      color: #e2e8f0;
+      background:
+        radial-gradient(circle at top left, rgba(56, 189, 248, 0.12), transparent 35%),
+        radial-gradient(circle at bottom right, rgba(45, 212, 191, 0.12), transparent 28%),
+        linear-gradient(180deg, #020617 0%, #0f172a 100%);
+    }
+
+    body.dark-mode .glass-card,
+    body.dark-mode .ticket-card {
+      background: rgba(15, 23, 42, 0.92);
+      border-color: #334155 !important;
+      box-shadow: 0 20px 60px rgba(2, 6, 23, 0.42);
+    }
+
+    body.dark-mode input,
+    body.dark-mode textarea,
+    body.dark-mode select {
+      background: #0f172a !important;
+      color: #e2e8f0 !important;
+      border-color: #334155 !important;
+    }
+
+    body.dark-mode select option {
+      background: #0f172a !important;
+      color: #e2e8f0 !important;
+    }
+
+    body.dark-mode .text-slate-800,
+    body.dark-mode .text-slate-700,
+    body.dark-mode .text-slate-600,
+    body.dark-mode .text-slate-500,
+    body.dark-mode .text-slate-900 {
+      color: #f8fafc !important;
+    }
+
+    /* Make common bg/text/border utility classes work with our 'dark-mode' toggle */
+    body.dark-mode .bg-slate-50,
+    body.dark-mode .bg-slate-100,
+    body.dark-mode .bg-white,
+    body.dark-mode .bg-slate-50\/80 {
+      background: #0f172a !important;
+    }
+
+    body.dark-mode .border-slate-200,
+    body.dark-mode .border-slate-300,
+    body.dark-mode .border-slate-100 {
+      border-color: #334155 !important;
+    }
+
+    body.dark-mode .text-slate-700,
+    body.dark-mode .text-slate-500,
+    body.dark-mode .text-slate-800 {
+      color: #e2e8f0 !important;
+    }
+
+    /* Ensure select dropdowns and options are dark in our theme */
+    body.dark-mode select {
+      background: #0f172a !important;
+      color: #e2e8f0 !important;
+      border-color: #334155 !important;
+    }
+
+    body.dark-mode select option {
+      background: #0f172a !important;
+      color: #e2e8f0 !important;
+    }
+
+    /* Repair note box (หมายเหตุซ่อม) - make text readable in both modes */
+    .ticket-card .bg-emerald-50 {
+      background: #ecfdf5 !important; /* light green */
+      border-color: #a7f3d0 !important;
+    }
+    .ticket-card .bg-emerald-50 .text-slate-700,
+    .ticket-card .bg-emerald-50 .text-slate-800,
+    .ticket-card .bg-emerald-50 p {
+      color: #064e3b !important; /* dark green for contrast */
+    }
+    .ticket-card .bg-emerald-50 .text-emerald-700 {
+      color: #047857 !important;
+    }
+
+    /* Dark mode: use subtle green tint and light text for readability */
+    body.dark-mode .ticket-card .bg-emerald-50 {
+      background: rgba(16, 185, 129, 0.06) !important; /* subtle green tint */
+      border-color: rgba(167,243,208,0.12) !important;
+    }
+    body.dark-mode .ticket-card .bg-emerald-50 .text-slate-700,
+    body.dark-mode .ticket-card .bg-emerald-50 .text-slate-800,
+    body.dark-mode .ticket-card .bg-emerald-50 p {
+      color: #d1fae5 !important; /* light green-ish text */
+    }
+    body.dark-mode .ticket-card .bg-emerald-50 .text-emerald-700 {
+      color: #86efac !important;
+    }
+  </style>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <link id="flatpickrDarkTheme" rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css" disabled>
+</head>
+<body class="min-h-screen text-slate-800">
+  <div class="max-w-6xl mx-auto py-8 px-4 relative z-10">
+    <div class="rounded-[30px] bg-gradient-to-r from-sky-800 to-cyan-700 text-white shadow-2xl p-6 mb-6 border border-white/20">
+      <div class="flex justify-between items-center gap-4 flex-wrap">
+        <div>
+          <h1 class="text-3xl font-bold">สถานะ Ticket ของฉัน</h1>
+          <p class="text-sky-100 mt-2">ดูสถานะ ticket ที่คุณส่งเข้ามาได้ที่นี่</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="themeToggleButton" class="bg-white/15 border border-white/30 text-white px-4 py-2 rounded-xl hover:bg-white/25 hover:-translate-y-0.5 transition-all duration-200">🌙 Dark Mode</button>
+          <a href="/user.html" class="bg-white/15 border border-white/30 text-white px-4 py-2 rounded-xl hover:bg-white/25 hover:-translate-y-0.5 transition-all duration-200">สร้าง Ticket ใหม่</a>
+          <button id="logoutButton" class="bg-white/15 border border-white/30 text-white px-4 py-2 rounded-xl hover:bg-white/25 hover:-translate-y-0.5 transition-all duration-200">ออกจากระบบ</button>
+        </div>
+      </div>
+    </div>
+
+    <section class="glass-card rounded-[30px] p-6 ring-1 ring-slate-100/80">
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-xl">📊</div>
+        <div>
+          <h2 class="text-xl font-semibold">รายการ Ticket ของฉัน</h2>
+          <p class="text-sm text-slate-500">แบ่งหน้าแสดงสถานะ ticket ออกจากหน้าเพิ่ม ticket</p>
+        </div>
+      </div>
+      <div class="grid gap-4 md:grid-cols-3 lg:grid-cols-5 mb-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-100 mb-1">สถานะ</label>
+          <select id="filterStatus" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-2 text-slate-800 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100">
+            <option value="">ทุกสถานะ</option>
+            <option value="pending">รอดำเนินการ</option>
+            <option value="in_progress">กำลังดำเนินการ</option>
+            <option value="completed">เสร็จสิ้น</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-100 mb-1">ประเภท</label>
+          <select id="filterCategory" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-2 text-slate-800 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100">
+            <option value="">ทุกประเภท</option>
+            <option value="hardware">Hardware</option>
+            <option value="software">Software</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-100 mb-1">จากวันที่</label>
+          <input id="filterFromDate" type="text" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-2 text-slate-800 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-100 mb-1">ถึงวันที่</label>
+          <input id="filterToDate" type="text" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-2 text-slate-800 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100" />
+        </div>
+        <div class="flex items-end gap-2">
+          <button id="applyFiltersButton" class="w-full rounded-2xl bg-sky-600 text-white px-4 py-2 hover:bg-sky-700 transition">กรอง</button>
+          <button id="resetFiltersButton" class="w-full rounded-2xl border border-slate-300 bg-white text-slate-700 px-4 py-2 hover:bg-slate-50 transition dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200">ล้าง</button>
+        </div>
+      </div>
+      <div id="ticketStatusList" class="space-y-4"></div>
+    </section>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/th.js"></script>
+  <script src="user-tickets.js"></script>
+</body>
+</html>

@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>เข้าสู่ระบบ - Hospital Helpdesk</title>
+  <link rel="icon" type="image/png" href="favicon.png" />
+  <link rel="shortcut icon" href="favicon.png" />
+  <link rel="apple-touch-icon" href="favicon.png" />
+  <meta name="theme-color" content="#0ea5e9" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/motion.css" />
+  <style>
+    :root {
+      color-scheme: light;
+    }
+
+    body {
+      background:
+        radial-gradient(circle at top left, rgba(34, 194, 255, 0.42), transparent 30%),
+        radial-gradient(circle at bottom right, rgba(16, 185, 129, 0.32), transparent 24%),
+        linear-gradient(135deg, #06121f 0%, #0b2942 45%, #0b5c57 100%);
+      font-family: Inter, "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background:
+        linear-gradient(120deg, rgba(255,255,255,0.08), transparent 35%),
+        radial-gradient(circle at top, rgba(255,255,255,0.12), transparent 50%);
+      pointer-events: none;
+    }
+
+    .glass-card {
+      backdrop-filter: blur(12px);
+      background: rgba(255, 255, 255, 0.9);
+      box-shadow: 0 24px 60px rgba(15, 23, 42, 0.18);
+    }
+
+    .hero-panel {
+      background:
+        linear-gradient(160deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.05)),
+        rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      box-shadow: 0 24px 60px rgba(9, 22, 35, 0.24);
+      backdrop-filter: blur(16px);
+    }
+
+    body.dark-mode {
+      color: #e2e8f0;
+      background:
+        radial-gradient(circle at top left, rgba(34, 211, 238, 0.12), transparent 28%),
+        radial-gradient(circle at bottom right, rgba(52, 211, 153, 0.1), transparent 22%),
+        linear-gradient(135deg, #020617 0%, #0f172a 45%, #022c22 100%);
+    }
+
+    body.dark-mode .glass-card {
+      background: rgba(15, 23, 42, 0.9);
+      border-color: rgba(51, 65, 85, 0.9);
+      box-shadow: 0 24px 60px rgba(2, 6, 23, 0.58);
+    }
+
+    body.dark-mode .hero-panel {
+      background:
+        linear-gradient(160deg, rgba(14, 116, 144, 0.35), rgba(2, 6, 23, 0.32)),
+        rgba(15, 23, 42, 0.65);
+      border-color: rgba(34, 211, 238, 0.2);
+    }
+
+    body.dark-mode .text-slate-800,
+    body.dark-mode .text-slate-700,
+    body.dark-mode .text-slate-600,
+    body.dark-mode .text-slate-500,
+    body.dark-mode .text-slate-900 {
+      color: #f8fafc !important;
+    }
+
+    body.dark-mode .text-slate-500 {
+      color: #94a3b8 !important;
+    }
+
+    body.dark-mode .text-emerald-700,
+    body.dark-mode .text-emerald-600,
+    body.dark-mode .text-emerald-500 {
+      color: #bbf7d0 !important;
+    }
+
+    body.dark-mode .text-blue-700,
+    body.dark-mode .text-blue-600,
+    body.dark-mode .text-blue-500 {
+      color: #bfdbfe !important;
+    }
+
+    body.dark-mode .text-amber-700,
+    body.dark-mode .text-amber-600,
+    body.dark-mode .text-amber-500 {
+      color: #fde68a !important;
+    }
+
+    body.dark-mode .border-slate-200,
+    body.dark-mode .border-slate-300,
+    body.dark-mode .border-slate-100 {
+      border-color: #334155 !important;
+    }
+
+    body.dark-mode .bg-slate-50,
+    body.dark-mode .bg-slate-100,
+    body.dark-mode .bg-white,
+    body.dark-mode .bg-white\/80,
+    body.dark-mode .bg-white\/90 {
+      background: #0f172a !important;
+    }
+
+    body.dark-mode input,
+    body.dark-mode textarea {
+      background: #0f172a !important;
+      color: #e2e8f0 !important;
+      border-color: #334155 !important;
+    }
+
+    body.dark-mode .shadow-sm,
+    body.dark-mode .shadow-lg,
+    body.dark-mode .shadow-2xl {
+      box-shadow: 0 12px 28px rgba(2, 6, 23, 0.42) !important;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4 text-slate-800">
+  <div class="max-w-5xl w-full grid lg:grid-cols-[1.1fr_0.9fr] gap-6 items-stretch relative z-10">
+    <div class="hero-panel rounded-[30px] text-white p-8 lg:p-10">
+      <div class="inline-flex items-center gap-3 rounded-full bg-white/15 px-4 py-2 text-sm font-semibold mb-6 shadow-lg border border-white/20">
+        <img src="logo.png" alt="Hospital Helpdesk logo" class="h-8 w-8 rounded-full bg-white/10 p-1 shadow-sm" />
+        <span>Hospital Equipment Helpdesk</span>
+      </div>
+      <div class="flex justify-end mt-1 mb-4">
+        <button id="themeToggleButton" class="rounded-full border border-white/30 bg-white/10 px-3 py-2 text-sm font-semibold text-white hover:bg-white/20 transition-all duration-200">🌙 Dark Mode</button>
+      </div>
+      <h1 class="text-4xl xl:text-5xl font-bold leading-tight">ระบบช่วยเหลืออุปกรณ์โรงพยาบาลเชียงคาน</h1>
+      <p class="mt-4 text-slate-100 text-lg max-w-xl">จัดการ Ticket ซ่อมอุปกรณ์ได้อย่างสะดวก รวดเร็ว สำหรับผู้ใช้และแอดมิน</p>
+      <div class="mt-8 grid grid-cols-2 gap-3 text-sm">
+        <div class="rounded-2xl bg-white/12 p-4 border border-white/15 shadow-md hover:-translate-y-0.5 transition-transform duration-200">
+          <div class="text-2xl mb-2">🧑‍💼</div>
+          <div class="font-semibold">User</div>
+          <div class="text-slate-200">ส่งเรื่องแจ้งซ่อม</div>
+        </div>
+        <div class="rounded-2xl bg-white/12 p-4 border border-white/15 shadow-md hover:-translate-y-0.5 transition-transform duration-200">
+          <div class="text-2xl mb-2">🛠️</div>
+          <div class="font-semibold">Admin</div>
+          <div class="text-slate-200">รับงานและปิดงาน</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="glass-card rounded-[30px] p-8 ring-1 ring-slate-100/80">
+      <div class="flex items-center gap-3 mb-4">
+        <img src="logo.png" alt="Hospital Helpdesk logo" class="h-14 w-14 rounded-3xl border border-slate-200/80 bg-slate-50 p-2 shadow-sm" />
+        <div>
+          <h2 class="text-2xl font-bold text-slate-800">เข้าสู่ระบบ</h2>
+          <p class="text-sm text-slate-500">โรงพยาบาลเชียงคาน</p>
+        </div>
+      </div>
+      <p class="text-slate-600 mt-2">กรุณาเข้าสู่ระบบเพื่อเข้าใช้งานหน้า User หรือ Admin</p>
+
+      <form id="loginForm" class="mt-6 space-y-4">
+        <div>
+          <label for="username" class="block text-sm font-medium text-slate-700">ชื่อผู้ใช้งาน</label>
+          <input id="username" name="username" type="text" required class="mt-1 w-full border border-slate-300 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-cyan-500 bg-white/80 shadow-sm" placeholder="admin01 หรือ nurse01" />
+        </div>
+
+        <div>
+          <label for="password" class="block text-sm font-medium text-slate-700">รหัสผ่าน</label>
+          <input id="password" name="password" type="password" required class="mt-1 w-full border border-slate-300 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-cyan-500 bg-white/80 shadow-sm" placeholder="รหัสผ่านตัวอย่าง" />
+        </div>
+
+        <button type="submit" class="w-full bg-gradient-to-r from-cyan-600 to-blue-600 text-white px-4 py-3 rounded-xl font-semibold shadow-lg hover:opacity-95 hover:-translate-y-0.5 transition-all duration-200">เข้าสู่ระบบ</button>
+      </form>
+
+  
+
+      <p id="loginMessage" class="mt-4 text-sm"></p>
+    </div>
+  </div>
+
+  <script src="index.js"></script>
+</body>
+</html>

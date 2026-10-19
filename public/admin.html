@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ระบบช่วยเหลืออุปกรณ์โรงพยาบาล - หน้า Admin</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/motion.css" />
+  <style>
+    :root {
+      color-scheme: light;
+    }
+
+    body {
+      background:
+        radial-gradient(circle at top right, rgba(34, 197, 94, 0.18), transparent 30%),
+        radial-gradient(circle at left center, rgba(56, 189, 248, 0.14), transparent 24%),
+        linear-gradient(180deg, #f8fafc 0%, #eef6f3 100%);
+      font-family: Inter, "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(255,255,255,0.35), transparent 22%);
+      pointer-events: none;
+    }
+
+    .glass-card {
+      backdrop-filter: blur(12px);
+      background: rgba(255, 255, 255, 0.92);
+      box-shadow: 0 22px 60px rgba(15, 23, 42, 0.12);
+    }
+
+    /* Repair note and completed status overrides */
+    .repair-note {
+      background: linear-gradient(180deg,#f8fafc,#ffffff);
+      color: #0f172a;
+      border: 1px solid #e6e6e6 !important;
+    }
+
+    .status-badge {
+      display: inline-block;
+      white-space: nowrap;
+      line-height: 1.25;
+    }
+
+    .ticket-urgency-badge {
+      display: inline-flex;
+      width: max-content;
+      max-width: none;
+      white-space: nowrap;
+      word-break: keep-all;
+      line-height: 1.25;
+    }
+
+    .status-completed {
+      background: #ffffff !important;
+      color: #0f172a !important;
+      border: 1px solid rgba(0,0,0,0.06) !important;
+    }
+
+    body.dark-mode .repair-note,
+    body.dark-mode textarea[data-note],
+    body.dark-mode #creatorRepairNote {
+      background: #0f172a !important;
+      color: #e2e8f0 !important;
+      border-color: #334155 !important;
+    }
+
+    body.dark-mode .status-completed {
+      background: rgba(16, 185, 129, 0.18) !important;
+      color: #d1fae5 !important;
+      border-color: rgba(110, 231, 183, 0.5) !important;
+    }
+
+    body.dark-mode .inline-block.rounded-full.bg-emerald-100.text-emerald-700 {
+      background: rgba(16, 185, 129, 0.18) !important;
+      color: #d1fae5 !important;
+      border: 1px solid rgba(110, 231, 183, 0.5) !important;
+    }
+
+    table tbody tr {
+      transition: background-color 0.18s ease;
+    }
+
+    table tbody tr:hover {
+      background: rgba(14, 165, 233, 0.05);
+    }
+
+    table tbody tr.completed-row {
+      background: #f8fafc;
+    }
+
+    table tbody tr.completed-group-start td {
+      border-top: 4px solid #cbd5e1 !important;
+    }
+
+    body.dark-mode {
+      color: #e2e8f0;
+      background:
+        radial-gradient(circle at top left, rgba(56, 189, 248, 0.12), transparent 35%),
+        radial-gradient(circle at bottom right, rgba(45, 212, 191, 0.12), transparent 28%),
+        linear-gradient(180deg, #020617 0%, #0f172a 100%);
+    }
+
+    body.dark-mode .glass-card {
+      background: rgba(15, 23, 42, 0.92);
+      border-color: #334155 !important;
+      box-shadow: 0 20px 60px rgba(2, 6, 23, 0.42);
+    }
+
+    body.dark-mode .text-slate-800,
+    body.dark-mode .text-slate-700,
+    body.dark-mode .text-slate-600,
+    body.dark-mode .text-slate-500,
+    body.dark-mode .text-slate-900 {
+      color: #f8fafc !important;
+    }
+
+    body.dark-mode .text-slate-500 {
+      color: #b8b894 !important;
+    }
+
+    body.dark-mode .text-emerald-700,
+    body.dark-mode .text-emerald-600,
+    body.dark-mode .text-emerald-500 {
+      color: #6ee7b7 !important;
+    }
+
+    body.dark-mode .text-blue-700,
+    body.dark-mode .text-blue-600,
+    body.dark-mode .text-blue-500 {
+      color: #93c5fd !important;
+    }
+
+    body.dark-mode .text-amber-700,
+    body.dark-mode .text-amber-600,
+    body.dark-mode .text-amber-500 {
+      color: #fde68a !important;
+    }
+
+    body.dark-mode .border-slate-200,
+    body.dark-mode .border-slate-300,
+    body.dark-mode .border-slate-100 {
+      border-color: #334155 !important;
+    }
+
+    body.dark-mode .bg-slate-50,
+    body.dark-mode .bg-slate-100,
+    body.dark-mode .bg-white,
+    body.dark-mode .bg-slate-50\/80 {
+      background: #1e293b !important;
+    }
+
+    body.dark-mode table {
+      background: #0f172a;
+      color: #e2e8f0;
+    }
+
+    body.dark-mode table thead {
+      background: #1e293b !important;
+    }
+
+    body.dark-mode table tbody tr {
+      border-color: #334155;
+    }
+
+    body.dark-mode table tbody tr:hover {
+      background: #1e293b !important;
+    }
+
+    body.dark-mode table tbody tr.completed-row {
+      background: #111827 !important;
+      opacity: 0.78;
+    }
+
+    body.dark-mode table tbody tr.completed-group-start td {
+      border-top-color: #64748b !important;
+    }
+
+    body.dark-mode table tbody tr.ticket-urgency-row.critical {
+      background: rgba(127, 29, 29, 0.38) !important;
+      box-shadow: inset 4px 0 0 #f87171;
+    }
+
+    body.dark-mode table tbody tr.ticket-urgency-row.high {
+      background: rgba(124, 45, 18, 0.34) !important;
+      box-shadow: inset 4px 0 0 #fb923c;
+    }
+
+    body.dark-mode table tbody tr.ticket-urgency-row.critical:hover {
+      background: rgba(153, 27, 27, 0.52) !important;
+    }
+
+    body.dark-mode table tbody tr.ticket-urgency-row.high:hover {
+      background: rgba(154, 52, 18, 0.48) !important;
+    }
+
+    body.dark-mode .ticket-urgency-badge.critical {
+      background: rgba(239, 68, 68, 0.28) !important;
+      color: #fecaca !important;
+      border-color: rgba(248, 113, 113, 0.75) !important;
+    }
+
+    body.dark-mode .ticket-urgency-badge.high {
+      background: rgba(249, 115, 22, 0.28) !important;
+      color: #fed7aa !important;
+      border-color: rgba(251, 146, 60, 0.75) !important;
+    }
+
+    body.dark-mode .ticket-urgency-badge.medium {
+      background: rgba(234, 179, 8, 0.25) !important;
+      color: #fef08a !important;
+      border-color: rgba(250, 204, 21, 0.7) !important;
+    }
+
+    body.dark-mode .ticket-urgency-badge.low {
+      background: rgba(16, 185, 129, 0.23) !important;
+      color: #a7f3d0 !important;
+      border-color: rgba(52, 211, 153, 0.7) !important;
+    }
+
+    body.dark-mode .status-badge.bg-amber-100 {
+      background: rgba(245, 158, 11, 0.22) !important;
+      color: #fcd34d !important;
+      border: 1px solid rgba(252, 211, 77, 0.45);
+    }
+
+    body.dark-mode .status-badge.bg-blue-100 {
+      background: rgba(59, 130, 246, 0.22) !important;
+      color: #93c5fd !important;
+      border: 1px solid rgba(147, 197, 253, 0.45);
+    }
+
+    body.dark-mode .status-badge.bg-emerald-100 {
+      background: rgba(16, 185, 129, 0.22) !important;
+      color: #6ee7b7 !important;
+      border: 1px solid rgba(110, 231, 183, 0.45);
+    }
+
+    body.dark-mode .notification-card {
+      background: rgba(127, 29, 29, 0.35) !important;
+      border-color: rgba(252, 165, 165, 0.3) !important;
+    }
+
+    body.dark-mode #clearNotificationsButton {
+      color: #cbd5e1 !important;
+      border-color: #475569 !important;
+    }
+
+    body.dark-mode #clearNotificationsButton:hover {
+      background: #334155 !important;
+    }
+
+    body.dark-mode label {
+      color: #f8fafc !important;
+    }
+
+    body.dark-mode textarea,
+    body.dark-mode input,
+    body.dark-mode select {
+      background: #0f172a !important;
+      color: #e2e8f0 !important;
+      border-color: #334155 !important;
+    }
+
+    body.dark-mode select option {
+      background: #0f172a !important;
+      color: #e2e8f0 !important;
+    }
+
+    body.dark-mode .shadow-sm,
+    body.dark-mode .shadow-lg,
+    body.dark-mode .shadow-xl,
+    body.dark-mode .shadow-2xl {
+      box-shadow: 0 14px 32px rgba(2, 6, 23, 0.42) !important;
+    }
+    #ticketAiModal.hidden {
+      display: none;
+    }
+
+    #ticketAiModal.ticket-ai-opening {
+      animation: ticket-ai-backdrop-in 180ms ease-out both;
+    }
+
+    #ticketAiModal.ticket-ai-opening > section {
+      animation: ticket-ai-dialog-in 220ms ease-out both;
+    }
+
+    #ticketAiModal.ticket-ai-closing {
+      animation: ticket-ai-backdrop-out 160ms ease-in both;
+      pointer-events: none;
+    }
+
+    #ticketAiModal.ticket-ai-closing > section {
+      animation: ticket-ai-dialog-out 160ms ease-in both;
+    }
+
+    @keyframes ticket-ai-backdrop-in {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes ticket-ai-dialog-in {
+      from { opacity: 0; transform: translateY(14px) scale(0.96); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    @keyframes ticket-ai-backdrop-out {
+      from { opacity: 1; }
+      to { opacity: 0; }
+    }
+
+    @keyframes ticket-ai-dialog-out {
+      from { opacity: 1; transform: translateY(0) scale(1); }
+      to { opacity: 0; transform: translateY(8px) scale(0.97); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      #ticketAiModal.ticket-ai-opening,
+      #ticketAiModal.ticket-ai-opening > section,
+      #ticketAiModal.ticket-ai-closing,
+      #ticketAiModal.ticket-ai-closing > section {
+        animation-duration: 1ms;
+      }
+    }
+  /* Notification card styles */
+  .notification-card {
+    transition: background-color 0.15s ease, color 0.15s ease;
+  }
+  .notification-card .title { color: inherit; }
+  .notification-card .meta { color: rgba(15,23,42,0.6); }
+  body.dark-mode .notification-card {
+    background: rgba(2,6,23,0.6) !important; /* dark card */
+    border-color: rgba(255,255,255,0.06) !important;
+    color: #e2e8f0 !important;
+  }
+  body.dark-mode .notification-card .meta { color: rgba(226,232,240,0.6) !important; }
+  body.dark-mode .notification-card .title { color: #f8fafc !important; }
+  </style>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <link id="flatpickrDarkTheme" rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css" disabled>
+</head>
+<body class="min-h-screen text-slate-800">
+  <div class="max-w-7xl mx-auto py-8 px-4 relative z-10">
+    <div class="rounded-[30px] bg-gradient-to-r from-emerald-800 to-teal-700 text-white shadow-2xl p-6 mb-6 border border-white/20">
+      <div class="flex justify-between items-center gap-4 flex-wrap">
+        <div class="flex items-center gap-4">
+          
+          <div>
+            <h1 class="text-3xl font-bold">จัดการ Ticket</h1>
+            <p class="text-emerald-100 mt-2">ตรวจสอบและอัปเดตสถานะงานซ่อมของผู้ใช้</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="themeToggleButton" class="bg-white/15 border border-white/30 text-white px-4 py-2 rounded-xl hover:bg-white/25 hover:-translate-y-0.5 transition-all duration-200">🌙 Dark Mode</button>
+          <a href="/admin-dashboard.html" class="bg-white/15 border border-white/30 text-white px-4 py-2 rounded-xl hover:bg-white/25 hover:-translate-y-0.5 transition-all duration-200">กลับไปยัง Dashboard</a>
+          <button id="exportExcelButton" class="bg-violet-600 text-white px-4 py-2 rounded-xl hover:bg-violet-700 hover:-translate-y-0.5 transition-all duration-200">⬇️ ดาวน์โหลด Excel</button>
+          <button id="logoutButton" class="bg-white/15 border border-white/30 text-white px-4 py-2 rounded-xl hover:bg-white/25 hover:-translate-y-0.5 transition-all duration-200">ออกจากระบบ</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-3 mb-6">
+      <button id="viewTicketsButton" class="bg-emerald-600 text-white px-5 py-2 rounded-xl hover:bg-emerald-700 transition font-semibold">จัดการ Ticket</button>
+      <a href="/in-progress-tickets.html" class="rounded-xl border border-blue-300 bg-blue-50 px-5 py-2 font-semibold text-blue-800 hover:bg-blue-100">งานระหว่างดำเนินการ</a>
+      <a href="/completed-tickets.html" class="rounded-xl border border-slate-300 bg-white px-5 py-2 font-semibold text-slate-700 hover:bg-slate-50">ดูงานที่เสร็จแล้ว</a>
+      <button id="createTicketButton" class="bg-blue-600 text-white px-5 py-2 rounded-xl hover:bg-blue-700 transition font-semibold">+ สร้าง Ticket</button>
+    </div>
+
+    <!-- Create Ticket Form Section -->
+    <div id="createTicketSection" class="hidden glass-card rounded-[28px] p-6 mb-6 ring-1 ring-slate-100/80">
+      <h2 class="text-2xl font-semibold mb-6">สร้าง Ticket ใหม่ (จากแอดมิน)</h2>
+      <form id="adminCreateTicketForm" class="space-y-4">
+        <div class="grid gap-4 md:grid-cols-2">
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">ชื่อผู้แจ้ง *</label>
+            <input id="creatorName" type="text" placeholder="ชื่อจริง-นามสกุล" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-2 text-slate-800 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100" required />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">ชื่อผู้ใช้ผู้แจ้ง</label>
+            <input id="creatorUsername" type="text" placeholder="ชื่อผู้ใช้" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-2 text-slate-800 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100" />
+          </div>
+        </div>
+
+        <div class="grid gap-4 md:grid-cols-2">
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">วันที่แจ้ง *</label>
+            <input id="createdDate" type="datetime-local" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-2 text-slate-800 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100" required />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">วันที่เสร็จงาน</label>
+            <input id="completedDate" type="datetime-local" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-2 text-slate-800 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100" />
+          </div>
+        </div>
+
+        <div class="grid gap-4 md:grid-cols-1">
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">แผนก *</label>
+            <select id="creatorDepartment" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-2 text-slate-800 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100" required>
+              <option value="">-- เลือกแผนก --</option>
+              <option value="ER">ER</option>
+              <option value="OPD">OPD</option>
+              <option value="ICU">ICU</option>
+              <option value="Lab">Lab</option>
+              <option value="Radiology">Radiology</option>
+              <option value="Pharmacy">Pharmacy</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid gap-4 md:grid-cols-2">
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">อุปกรณ์ *</label>
+            <select id="creatorEquipment" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-2 text-slate-800 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100" required>
+              <option value="">-- เลือกอุปกรณ์ --</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">ประเภท *</label>
+            <select id="creatorCategory" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-2 text-slate-800 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100" required>
+              <option value="hardware">Hardware</option>
+              <option value="software">Software</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">สาเหตุ/รายละเอียด *</label>
+          <textarea id="creatorIssueDetail" rows="4" placeholder="รายละเอียดปัญหาที่พบ" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-2 text-slate-800 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100" required></textarea>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">หมายเหตุ</label>
+          <textarea id="creatorRepairNote" rows="3" placeholder="หมายเหตุเพิ่มเติม" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-2 text-slate-800 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"></textarea>
+        </div>
+
+        <div class="flex gap-3">
+          <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded-2xl hover:bg-blue-700 transition font-semibold">สร้าง Ticket</button>
+          <button type="button" id="cancelCreateButton" class="bg-slate-400 text-white px-6 py-2 rounded-2xl hover:bg-slate-500 transition">ยกเลิก</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Manage Tickets Section -->
+    <div id="manageTicketsSection" class="glass-card rounded-[28px] p-4 mb-6 ring-1 ring-slate-100/80">
+      <div class="flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="text-sm font-semibold text-slate-700">แจ้งเตือน Ticket ใหม่</span>
+            <span id="notificationBadge" class="rounded-full bg-rose-500 text-white px-2 py-0.5 text-xs font-semibold">0</span>
+          </div>
+          <p class="text-sm text-slate-500 mt-1">ดู ticket ที่ผู้ใช้ส่งเข้ามาใหม่ได้จากที่นี่</p>
+        </div>
+        <button id="clearNotificationsButton" class="text-sm text-slate-600 border border-slate-200 px-3 py-2 rounded-xl hover:bg-slate-50 hover:-translate-y-0.5 transition-all duration-200">เคลียร์แจ้งเตือน</button>
+      </div>
+      <div id="notificationList" class="mt-4 space-y-2"></div>
+    </div>
+
+    <div class="glass-card rounded-[28px] p-4 mb-4 ring-1 ring-slate-100/80">
+      <div class="grid gap-4 md:grid-cols-5">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">สถานะ</label>
+          <select id="filterStatus" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-2 text-slate-800 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100">
+            <option value="">ทุกสถานะ</option>
+            <option value="pending">รอดำเนินการ</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">ประเภท</label>
+          <select id="filterCategory" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-2 text-slate-800 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100">
+            <option value="">ทุกประเภท</option>
+            <option value="hardware">Hardware</option>
+            <option value="software">Software</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">จากวันที่</label>
+          <input id="filterFromDate" type="text" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-2 text-slate-800 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">ถึงวันที่</label>
+          <input id="filterToDate" type="text" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-2 text-slate-800 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">ค้นหา</label>
+          <input id="filterSearch" type="search" placeholder="รหัสอุปกรณ์ / ผู้แจ้ง / รายละเอียด" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-2 text-slate-800 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100" />
+        </div>
+      </div>
+      <div class="mt-4 flex flex-wrap gap-3">
+        <button id="applyFiltersButton" class="rounded-2xl bg-sky-600 text-white px-5 py-2 hover:bg-sky-700 transition">กรอง</button>
+        <button id="resetFiltersButton" class="rounded-2xl border border-slate-300 bg-white text-slate-700 px-5 py-2 hover:bg-slate-50 transition">ล้าง</button>
+      </div>
+    </div>
+
+    <div class="glass-card rounded-[28px] overflow-hidden border border-slate-100">
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-slate-200">
+          <thead class="bg-slate-50">
+            <tr>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Ticket</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">ผู้ใช้</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">อุปกรณ์</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">ประเภท</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">ความสำคัญ</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">ผู้แจ้ง</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">รายละเอียด</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">แจ้ง/เสร็จ</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">สถานะ</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">หมายเหตุซ่อม</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">ดำเนินการ</th>
+            </tr>
+          </thead>
+          <tbody id="ticketTableBody" class="divide-y divide-slate-100"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div id="ticketAiModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
+    <section class="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+      <div class="flex items-center justify-between rounded-t-2xl bg-gradient-to-r from-violet-600 to-blue-600 px-5 py-4 text-white">
+        <div>
+          <h2 class="text-lg font-semibold">ผู้ช่วย AI วิเคราะห์ Ticket</h2>
+          <p id="ticketAiSubtitle" class="text-xs text-blue-100"></p>
+        </div>
+        <button id="ticketAiClose" type="button" aria-label="ปิดคำแนะนำ AI" class="rounded-lg px-2 py-1 text-2xl hover:bg-white/20">×</button>
+      </div>
+      <div class="min-h-0 space-y-4 overflow-y-auto p-5">
+        <div id="ticketAiIssue" class="rounded-xl bg-slate-50 p-3 text-sm leading-6 text-slate-700"></div>
+        <div id="ticketAiStatus" class="text-sm text-slate-500">กดปุ่มเพื่อขอคำแนะนำ...</div>
+        <div id="ticketAiAnswer" class="hidden whitespace-pre-wrap rounded-xl border border-violet-100 bg-violet-50 p-4 text-sm leading-7 text-slate-800"></div>
+        <p class="text-xs text-slate-500">คำแนะนำนี้เป็นแนวทางเบื้องต้น ควรตรวจสอบกับขั้นตอนของโรงพยาบาลและความปลอดภัยของผู้ป่วยก่อนดำเนินการจริง</p>
+      </div>
+      <div class="flex justify-end gap-2 border-t border-slate-200 px-5 py-4">
+        <button id="ticketAiAsk" type="button" class="rounded-xl bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50">ขอคำแนะนำ</button>
+        <button id="ticketAiCancel" type="button" class="rounded-xl border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">ปิด</button>
+      </div>
+    </section>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/th.js"></script>
+  <script src="admin.js"></script>
+</body>
+</html>

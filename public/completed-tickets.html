@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>งานที่เสร็จแล้ว - Hospital Helpdesk</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/motion.css" />
+  <style>
+    body { background: linear-gradient(180deg, #f8fbff 0%, #eef4ff 100%); font-family: Inter, "Segoe UI", Tahoma, sans-serif; }
+    body.dark-mode { color: #e2e8f0; background: linear-gradient(180deg, #020617 0%, #0f172a 100%); }
+    body.dark-mode .panel, body.dark-mode .ticket { background: #0f172a !important; border-color: #334155 !important; }
+    body.dark-mode .muted, body.dark-mode .ticket-text { color: #cbd5e1 !important; }
+    body.dark-mode input { background: #0f172a; color: #e2e8f0; border-color: #334155; }
+  </style>
+</head>
+<body class="min-h-screen text-slate-800">
+  <main class="mx-auto max-w-7xl px-4 py-8">
+    <header class="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-[30px] bg-gradient-to-r from-slate-700 to-slate-900 p-6 text-white shadow-2xl">
+      <div>
+        <h1 class="text-3xl font-bold">งานที่เสร็จแล้ว</h1>
+        <p class="mt-2 text-slate-300">รายการ Ticket ที่ดำเนินการเสร็จสิ้น</p>
+      </div>
+      <div class="flex gap-2">
+        <button id="themeToggle" class="rounded-xl border border-white/30 px-4 py-2">🌙 Dark Mode</button>
+        <a href="/admin.html" class="rounded-xl border border-white/30 px-4 py-2">กลับไปจัดการ Ticket</a>
+        <button id="logoutButton" class="rounded-xl border border-white/30 px-4 py-2">ออกจากระบบ</button>
+      </div>
+    </header>
+    <section class="panel overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-xl">
+      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-5">
+        <input id="searchInput" type="search" placeholder="ค้นหา Ticket / อุปกรณ์ / รายละเอียด" class="w-full max-w-md rounded-xl border border-slate-300 px-4 py-2 outline-none focus:ring-2 focus:ring-sky-500" />
+        <span id="resultCount" class="muted text-sm text-slate-500"></span>
+      </div>
+      <div id="completedList" class="space-y-3 p-5"></div>
+    </section>
+  </main>
+  <script src="completed-tickets.js"></script>
+</body>
+</html>
