@@ -277,55 +277,6 @@
     body.dark-mode .shadow-2xl {
       box-shadow: 0 14px 32px rgba(2, 6, 23, 0.42) !important;
     }
-    #ticketAiModal.hidden {
-      display: none;
-    }
-
-    #ticketAiModal.ticket-ai-opening {
-      animation: ticket-ai-backdrop-in 180ms ease-out both;
-    }
-
-    #ticketAiModal.ticket-ai-opening > section {
-      animation: ticket-ai-dialog-in 220ms ease-out both;
-    }
-
-    #ticketAiModal.ticket-ai-closing {
-      animation: ticket-ai-backdrop-out 160ms ease-in both;
-      pointer-events: none;
-    }
-
-    #ticketAiModal.ticket-ai-closing > section {
-      animation: ticket-ai-dialog-out 160ms ease-in both;
-    }
-
-    @keyframes ticket-ai-backdrop-in {
-      from { opacity: 0; }
-      to { opacity: 1; }
-    }
-
-    @keyframes ticket-ai-dialog-in {
-      from { opacity: 0; transform: translateY(14px) scale(0.96); }
-      to { opacity: 1; transform: translateY(0) scale(1); }
-    }
-
-    @keyframes ticket-ai-backdrop-out {
-      from { opacity: 1; }
-      to { opacity: 0; }
-    }
-
-    @keyframes ticket-ai-dialog-out {
-      from { opacity: 1; transform: translateY(0) scale(1); }
-      to { opacity: 0; transform: translateY(8px) scale(0.97); }
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-      #ticketAiModal.ticket-ai-opening,
-      #ticketAiModal.ticket-ai-opening > section,
-      #ticketAiModal.ticket-ai-closing,
-      #ticketAiModal.ticket-ai-closing > section {
-        animation-duration: 1ms;
-      }
-    }
   /* Notification card styles */
   .notification-card {
     transition: background-color 0.15s ease, color 0.15s ease;
@@ -517,28 +468,6 @@
         </table>
       </div>
     </div>
-  </div>
-
-  <div id="ticketAiModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
-    <section class="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
-      <div class="flex items-center justify-between rounded-t-2xl bg-gradient-to-r from-violet-600 to-blue-600 px-5 py-4 text-white">
-        <div>
-          <h2 class="text-lg font-semibold">ผู้ช่วย AI วิเคราะห์ Ticket</h2>
-          <p id="ticketAiSubtitle" class="text-xs text-blue-100"></p>
-        </div>
-        <button id="ticketAiClose" type="button" aria-label="ปิดคำแนะนำ AI" class="rounded-lg px-2 py-1 text-2xl hover:bg-white/20">×</button>
-      </div>
-      <div class="min-h-0 space-y-4 overflow-y-auto p-5">
-        <div id="ticketAiIssue" class="rounded-xl bg-slate-50 p-3 text-sm leading-6 text-slate-700"></div>
-        <div id="ticketAiStatus" class="text-sm text-slate-500">กดปุ่มเพื่อขอคำแนะนำ...</div>
-        <div id="ticketAiAnswer" class="hidden whitespace-pre-wrap rounded-xl border border-violet-100 bg-violet-50 p-4 text-sm leading-7 text-slate-800"></div>
-        <p class="text-xs text-slate-500">คำแนะนำนี้เป็นแนวทางเบื้องต้น ควรตรวจสอบกับขั้นตอนของโรงพยาบาลและความปลอดภัยของผู้ป่วยก่อนดำเนินการจริง</p>
-      </div>
-      <div class="flex justify-end gap-2 border-t border-slate-200 px-5 py-4">
-        <button id="ticketAiAsk" type="button" class="rounded-xl bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50">ขอคำแนะนำ</button>
-        <button id="ticketAiCancel" type="button" class="rounded-xl border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">ปิด</button>
-      </div>
-    </section>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>

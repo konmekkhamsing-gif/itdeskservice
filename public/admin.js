@@ -33,16 +33,6 @@ const creatorUsername = document.getElementById('creatorUsername');
 const creatorCategory = document.getElementById('creatorCategory');
 const creatorIssueDetail = document.getElementById('creatorIssueDetail');
 const creatorRepairNote = document.getElementById('creatorRepairNote');
-const ticketAiModal = document.getElementById('ticketAiModal');
-const ticketAiClose = document.getElementById('ticketAiClose');
-const ticketAiCancel = document.getElementById('ticketAiCancel');
-const ticketAiAsk = document.getElementById('ticketAiAsk');
-const ticketAiSubtitle = document.getElementById('ticketAiSubtitle');
-const ticketAiIssue = document.getElementById('ticketAiIssue');
-const ticketAiStatus = document.getElementById('ticketAiStatus');
-const ticketAiAnswer = document.getElementById('ticketAiAnswer');
-const ticketRecords = new Map();
-let selectedTicketForAi = null;
 
 const urgencyConfig = {
   critical: { label: 'ด่วนมาก', className: 'bg-red-100 text-red-800 border-red-300' },
@@ -228,9 +218,6 @@ async function loadTickets() {
 
   const response = await fetch(`/api/tickets?${query.toString()}`);
   const tickets = await response.json();
-  ticketRecords.clear();
-  tickets.forEach((ticket) => ticketRecords.set(String(ticket.ticket_id), ticket));
-
   ticketTableBody.innerHTML = tickets.length ? tickets.map((ticket, index) => {
     const showAccept = ticket.status === 'pending';
     const showClose = ticket.status === 'in_progress';
@@ -274,7 +261,6 @@ async function loadTickets() {
           ${showClose ? `<label class="text-xs text-slate-600">วันและเวลาเสร็จงาน<input data-completed-at="${ticket.ticket_id}" type="datetime-local" value="${toDateTimeLocal(ticket.completed_at)}" class="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1 text-sm" /></label>` : ''}
           ${showClose ? `<button data-action="close" data-id="${ticket.ticket_id}" class="bg-emerald-600 text-white px-3 py-2 rounded-xl hover:bg-emerald-700 hover:-translate-y-0.5 transition-all duration-200">ปิดงาน</button>` : ''}
           <button data-action="save" data-id="${ticket.ticket_id}" class="bg-slate-600 text-white px-3 py-2 rounded-xl hover:bg-slate-700 hover:-translate-y-0.5 transition-all duration-200">บันทึกหมายเหตุ</button>
-          <button data-action="ai-help" data-id="${ticket.ticket_id}" class="bg-violet-600 text-white px-3 py-2 rounded-xl hover:bg-violet-700 hover:-translate-y-0.5 transition-all duration-200">AIวิเคราะห์</button>
           ${ticket.status === 'completed' ? '<span class="inline-block rounded-full bg-emerald-100 text-emerald-700 px-2.5 py-1 text-xs font-semibold">เสร็จสิ้น</span>' : ''}
         </div>
       </td>
@@ -292,10 +278,6 @@ async function loadTickets() {
   document.querySelectorAll('[data-action]').forEach(button => {
     button.addEventListener('click', async () => {
       const ticketId = button.dataset.id;
-      if (button.dataset.action === 'ai-help') {
-        openTicketAi(ticketRecords.get(String(ticketId)));
-        return;
-      }
       const note = document.querySelector(`[data-note="${ticketId}"]`).value;
       let status;
 
@@ -335,75 +317,6 @@ async function loadTickets() {
     });
   });
 }
-
-function openTicketAi(ticket) {
-  if (!ticket) return;
-  selectedTicketForAi = ticket;
-  ticketAiSubtitle.textContent = `Ticket #${ticket.ticket_id} • ${ticket.equipment_code || 'ไม่ระบุอุปกรณ์'}`;
-  ticketAiIssue.textContent = `รายละเอียดปัญหา: ${ticket.issue_detail || 'ไม่พบรายละเอียด'}`;
-  ticketAiStatus.textContent = 'AI จะช่วยจัดลำดับการตรวจสอบเบื้องต้นให้';
-  ticketAiAnswer.textContent = '';
-  ticketAiAnswer.classList.add('hidden');
-  ticketAiAsk.disabled = false;
-  ticketAiModal.classList.remove('hidden');
-  ticketAiModal.classList.remove('ticket-ai-closing');
-  ticketAiModal.classList.add('ticket-ai-opening');
-}
-
-function closeTicketAi() {
-  if (ticketAiModal.classList.contains('hidden') || ticketAiModal.classList.contains('ticket-ai-closing')) return;
-  ticketAiModal.classList.remove('ticket-ai-opening');
-  ticketAiModal.classList.add('ticket-ai-closing');
-}
-
-ticketAiModal.addEventListener('animationend', (event) => {
-  if (event.target === ticketAiModal && ticketAiModal.classList.contains('ticket-ai-closing')) {
-    ticketAiModal.classList.add('hidden');
-    ticketAiModal.classList.remove('ticket-ai-closing');
-    selectedTicketForAi = null;
-  }
-});
-
-async function askTicketAi() {
-  if (!selectedTicketForAi || ticketAiAsk.disabled) return;
-  const ticket = selectedTicketForAi;
-  ticketAiAsk.disabled = true;
-  ticketAiStatus.textContent = 'กำลังวิเคราะห์ Ticket...';
-  ticketAiAnswer.classList.add('hidden');
-
-  const question = [
-    'ช่วยวิเคราะห์ Ticket งาน IT ของโรงพยาบาลนี้สำหรับแอดมินช่าง',
-    `อุปกรณ์: ${ticket.equipment_code || 'ไม่ระบุ'}`,
-    `ประเภท: ${ticket.ticket_category === 'software' ? 'Software' : 'Hardware'}`,
-    `รายละเอียดอาการ: ${ticket.issue_detail || 'ไม่ระบุ'}`,
-    '',
-    'ขอคำตอบภาษาไทยแบบสั้นและปฏิบัติได้ โดยแบ่งเป็น 1) ตรวจสอบเบื้องต้นทีละขั้น 2) สิ่งที่ควรระวัง 3) เกณฑ์ส่งต่อหรือเรียกช่างเฉพาะทาง และอย่าแนะนำให้แกะหรือซ่อมอุปกรณ์ทางการแพทย์ที่อาจกระทบผู้ป่วย ให้ระบุว่าเป็นคำแนะนำเบื้องต้นเท่านั้น'
-  ].join('\n');
-
-  try {
-    const response = await fetch('/api/ai/ask', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question })
-    });
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.error || 'ไม่สามารถขอคำแนะนำจาก AI ได้');
-    ticketAiAnswer.textContent = result.answer;
-    ticketAiAnswer.classList.remove('hidden');
-    ticketAiStatus.textContent = 'คำแนะนำเบื้องต้นจาก AI';
-  } catch (error) {
-    ticketAiStatus.textContent = error.message;
-  } finally {
-    ticketAiAsk.disabled = false;
-  }
-}
-
-ticketAiClose.addEventListener('click', closeTicketAi);
-ticketAiCancel.addEventListener('click', closeTicketAi);
-ticketAiAsk.addEventListener('click', askTicketAi);
-ticketAiModal.addEventListener('click', (event) => {
-  if (event.target === ticketAiModal) closeTicketAi();
-});
 
 // -----------------------------------------------------
 // ส่วนสลับหน้า/section
