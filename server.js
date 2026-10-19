@@ -28,8 +28,7 @@ const hashPassword = (password) => crypto.createHash('sha256').update(String(pas
 
 // -----------------------------------------------------
 // ส่วนตั้งค่าฐานข้อมูลและ schema
-// - สร้าง database หากยังไม่มี
-// - ตั้ง charset เป็น utf8mb4 เพื่อรองรับภาษาไทย
+// - เชื่อมต่อฐานข้อมูลที่กำหนดไว้แล้ว
 // - สร้างตาราง users, equipments, tickets หากยังไม่มี
 // -----------------------------------------------------
 async function ensureDatabaseSchema() {
@@ -38,13 +37,10 @@ async function ensureDatabaseSchema() {
     port: DB_PORT,
     user: DB_USER,
     password: DB_PASSWORD,
+    database: DB_NAME,
     multipleStatements: true,
     charset: 'utf8mb4'
   });
-
-  await connection.query(`CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`);
-  await connection.query(`ALTER DATABASE \`${DB_NAME}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`);
-  await connection.query(`USE \`${DB_NAME}\`;`);
 
   await connection.query(`
     CREATE TABLE IF NOT EXISTS users (
