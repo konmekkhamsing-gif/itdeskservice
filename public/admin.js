@@ -22,7 +22,24 @@ const createTicketButton = document.getElementById('createTicketButton');
 const exportExcelButton = document.getElementById('exportExcelButton');
 const createTicketSection = document.getElementById('createTicketSection');
 const manageTicketsSection = document.getElementById('manageTicketsSection');
+const ticketFiltersSection = document.getElementById('ticketFiltersSection');
+const ticketTableSection = document.getElementById('ticketTableSection');
+const manageUsersButton = document.getElementById('manageUsersButton');
+const userManagementSection = document.getElementById('userManagementSection');
+const userManagementForm = document.getElementById('userManagementForm');
+const managedUserId = document.getElementById('managedUserId');
+const managedUsername = document.getElementById('managedUsername');
+const managedFullName = document.getElementById('managedFullName');
+const managedDepartment = document.getElementById('managedDepartment');
+const managedPassword = document.getElementById('managedPassword');
+const managedPasswordRequiredLabel = document.getElementById('managedPasswordRequiredLabel');
+const managedPasswordHelp = document.getElementById('managedPasswordHelp');
+const saveManagedUserButton = document.getElementById('saveManagedUserButton');
+const cancelManagedUserEditButton = document.getElementById('cancelManagedUserEditButton');
+const userManagementMessage = document.getElementById('userManagementMessage');
+const managedUsersTableBody = document.getElementById('managedUsersTableBody');
 const adminCreateTicketForm = document.getElementById('adminCreateTicketForm');
+let userManagementAdminPassword = '';
 const cancelCreateButton = document.getElementById('cancelCreateButton');
 const creatorDepartment = document.getElementById('creatorDepartment');
 const creatorEquipment = document.getElementById('creatorEquipment');
@@ -321,13 +338,23 @@ async function loadTickets() {
 // -----------------------------------------------------
 // ส่วนสลับหน้า/section
 // -----------------------------------------------------
-viewTicketsButton.addEventListener('click', () => {
+function showTicketSections() {
   createTicketSection.classList.add('hidden');
+  userManagementSection.classList.add('hidden');
   manageTicketsSection.classList.remove('hidden');
+  ticketFiltersSection.classList.remove('hidden');
+  ticketTableSection.classList.remove('hidden');
+}
+
+viewTicketsButton.addEventListener('click', () => {
+  showTicketSections();
 });
 
 createTicketButton.addEventListener('click', () => {
   manageTicketsSection.classList.add('hidden');
+  ticketFiltersSection.classList.add('hidden');
+  ticketTableSection.classList.add('hidden');
+  userManagementSection.classList.add('hidden');
   createTicketSection.classList.remove('hidden');
   setDefaultCreateDateTimes();
   loadDepartmentsForCreate();
@@ -336,7 +363,161 @@ createTicketButton.addEventListener('click', () => {
 cancelCreateButton.addEventListener('click', () => {
   adminCreateTicketForm.reset();
   createTicketSection.classList.add('hidden');
-  manageTicketsSection.classList.remove('hidden');
+  showTicketSections();
+});
+
+function resetManagedUserForm() {
+  userManagementForm.reset();
+  managedUserId.value = '';
+  managedPassword.required = true;
+  managedPasswordRequiredLabel.textContent = '(อย่างน้อย 8 ตัวอักษร) *';
+  managedPasswordHelp.textContent = 'กำหนดรหัสผ่านเริ่มต้นอย่างน้อย 8 ตัวอักษร';
+  saveManagedUserButton.textContent = 'เพิ่มผู้ใช้';
+  cancelManagedUserEditButton.classList.add('hidden');
+  userManagementMessage.textContent = '';
+  userManagementMessage.className = 'text-sm md:col-span-2';
+}
+
+async function loadManagedUsers() {
+  const auth = requireLogin();
+  if (!auth) return;
+
+  userManagementMessage.textContent = 'กำลังโหลดรายชื่อผู้ใช้...';
+  userManagementMessage.className = 'text-sm text-slate-500 md:col-span-2';
+  try {
+    const response = await fetch(`/api/admin/users?adminId=${encodeURIComponent(auth.userId)}`, {
+      headers: { 'X-Admin-Password': userManagementAdminPassword }
+    });
+    const users = await response.json();
+    if (!response.ok) throw new Error(users.error || 'ไม่สามารถดึงรายชื่อผู้ใช้ได้');
+
+    managedUsersTableBody.replaceChildren();
+    if (users.length === 0) {
+      const row = document.createElement('tr');
+      const cell = document.createElement('td');
+      cell.colSpan = 4;
+      cell.className = 'px-4 py-6 text-center text-sm text-slate-500';
+      cell.textContent = 'ยังไม่มีบัญชีผู้ใช้';
+      row.appendChild(cell);
+      managedUsersTableBody.appendChild(row);
+    } else {
+      users.forEach((user) => {
+        const row = document.createElement('tr');
+        [user.username, user.full_name, user.department || '—'].forEach((value) => {
+          const cell = document.createElement('td');
+          cell.className = 'px-4 py-3 text-sm text-slate-800';
+          cell.textContent = value;
+          row.appendChild(cell);
+        });
+        const actionCell = document.createElement('td');
+        actionCell.className = 'px-4 py-3 text-sm';
+        const editButton = document.createElement('button');
+        editButton.type = 'button';
+        editButton.dataset.action = 'edit-user';
+        editButton.dataset.userId = String(user.user_id);
+        editButton.className = 'rounded-lg bg-blue-600 px-3 py-2 text-white hover:bg-blue-700';
+        editButton.textContent = 'แก้ไข / ตั้งรหัสใหม่';
+        actionCell.appendChild(editButton);
+        row.appendChild(actionCell);
+        managedUsersTableBody.appendChild(row);
+      });
+    }
+    userManagementMessage.textContent = '';
+    return true;
+  } catch (error) {
+    if (error.message === 'ไม่อนุญาตให้จัดการผู้ใช้งาน') userManagementAdminPassword = '';
+    userManagementMessage.textContent = error.message;
+    userManagementMessage.className = 'text-sm text-red-600 md:col-span-2';
+    return false;
+  }
+}
+
+manageUsersButton.addEventListener('click', async () => {
+  if (!requireLogin()) return;
+  const password = window.prompt('กรอกรหัสผ่านแอดมินเพื่อยืนยันการจัดการบัญชีผู้ใช้');
+  if (password === null) return;
+  if (!password) {
+    userManagementMessage.textContent = 'กรุณากรอกรหัสผ่านแอดมิน';
+    userManagementMessage.className = 'text-sm text-red-600 md:col-span-2';
+    return;
+  }
+  userManagementAdminPassword = password;
+  createTicketSection.classList.add('hidden');
+  manageTicketsSection.classList.add('hidden');
+  ticketFiltersSection.classList.add('hidden');
+  ticketTableSection.classList.add('hidden');
+  userManagementSection.classList.remove('hidden');
+  resetManagedUserForm();
+  await loadManagedUsers();
+});
+
+managedUsersTableBody.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-action="edit-user"]');
+  if (!button) return;
+  const selectedUser = Array.from(managedUsersTableBody.rows)
+    .find((row) => row.querySelector('[data-action="edit-user"]') === button);
+  if (!selectedUser) return;
+
+  managedUserId.value = button.dataset.userId;
+  managedUsername.value = selectedUser.cells[0].textContent;
+  managedFullName.value = selectedUser.cells[1].textContent;
+  managedDepartment.value = selectedUser.cells[2].textContent === '—' ? '' : selectedUser.cells[2].textContent;
+  managedPassword.value = '';
+  managedPassword.required = false;
+  managedPasswordRequiredLabel.textContent = '(เว้นว่างเพื่อคงรหัสผ่านเดิม)';
+  managedPasswordHelp.textContent = 'กรอกรหัสผ่านใหม่อย่างน้อย 8 ตัวอักษรเมื่อต้องการรีเซ็ต';
+  saveManagedUserButton.textContent = 'บันทึกการแก้ไข';
+  cancelManagedUserEditButton.classList.remove('hidden');
+  userManagementMessage.textContent = '';
+  managedUsername.focus();
+});
+
+cancelManagedUserEditButton.addEventListener('click', resetManagedUserForm);
+
+userManagementForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const auth = requireLogin();
+  if (!auth) return;
+
+  const isEditing = Boolean(managedUserId.value);
+  const payload = {
+    adminId: auth.userId,
+    username: managedUsername.value.trim(),
+    fullName: managedFullName.value.trim(),
+    department: managedDepartment.value.trim()
+  };
+  if (managedPassword.value) payload.password = managedPassword.value;
+
+  saveManagedUserButton.disabled = true;
+  userManagementMessage.textContent = 'กำลังบันทึก...';
+  userManagementMessage.className = 'text-sm text-slate-500 md:col-span-2';
+  try {
+    const response = await fetch(
+      isEditing ? `/api/admin/users/${encodeURIComponent(managedUserId.value)}` : '/api/admin/users',
+      {
+        method: isEditing ? 'PUT' : 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Admin-Password': userManagementAdminPassword
+        },
+        body: JSON.stringify(payload)
+      }
+    );
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'ไม่สามารถบันทึกผู้ใช้งานได้');
+
+    resetManagedUserForm();
+    if (await loadManagedUsers()) {
+      userManagementMessage.textContent = result.message;
+      userManagementMessage.className = 'text-sm text-green-700 md:col-span-2';
+    }
+  } catch (error) {
+    if (error.message === 'ไม่อนุญาตให้จัดการผู้ใช้งาน') userManagementAdminPassword = '';
+    userManagementMessage.textContent = error.message;
+    userManagementMessage.className = 'text-sm text-red-600 md:col-span-2';
+  } finally {
+    saveManagedUserButton.disabled = false;
+  }
 });
 
 // -----------------------------------------------------

@@ -485,6 +485,130 @@ app.delete('/api/admin/notifications', (_req, res) => {
   res.json({ message: 'ล้างแจ้งเตือนเรียบร้อยแล้ว' });
 });
 
+async function isAdminUser(userId, password) {
+  if (typeof password !== 'string' || !password) return false;
+  const [rows] = await db.query(
+    'SELECT password_hash FROM users WHERE user_id = ? AND role = ?',
+    [Number(userId), 'admin']
+  );
+  if (!rows.length) return false;
+  const submittedHash = Buffer.from(hashPassword(password), 'hex');
+  const storedHash = Buffer.from(rows[0].password_hash, 'hex');
+  return submittedHash.length === storedHash.length && crypto.timingSafeEqual(submittedHash, storedHash);
+}
+
+app.get('/api/admin/users', async (req, res) => {
+  try {
+    if (!await isAdminUser(req.query.adminId, req.get('x-admin-password'))) {
+      return res.status(403).json({ error: 'ไม่อนุญาตให้จัดการผู้ใช้งาน' });
+    }
+
+    const [users] = await db.query(
+      `SELECT user_id, username, full_name, department
+       FROM users
+       WHERE role = 'user'
+       ORDER BY department, full_name, username`
+    );
+    res.json(users);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'ไม่สามารถดึงรายชื่อผู้ใช้งานได้' });
+  }
+});
+
+app.post('/api/admin/users', async (req, res) => {
+  try {
+    const { adminId, username, password, fullName, department } = req.body;
+    if (!await isAdminUser(adminId, req.get('x-admin-password'))) {
+      return res.status(403).json({ error: 'ไม่อนุญาตให้จัดการผู้ใช้งาน' });
+    }
+
+    const normalizedUsername = typeof username === 'string' ? username.trim() : '';
+    const normalizedFullName = typeof fullName === 'string' ? fullName.trim() : '';
+    const normalizedDepartment = typeof department === 'string' ? department.trim() : '';
+    if (!/^[a-zA-Z0-9._-]{3,100}$/.test(normalizedUsername)) {
+      return res.status(400).json({ error: 'ชื่อผู้ใช้ต้องยาว 3-100 ตัว และใช้ได้เฉพาะ a-z, 0-9, จุด, ขีดกลาง หรือขีดล่าง' });
+    }
+    if (!normalizedFullName || normalizedFullName.length > 255) {
+      return res.status(400).json({ error: 'กรุณาระบุชื่อ-นามสกุล ไม่เกิน 255 ตัวอักษร' });
+    }
+    if (!normalizedDepartment || normalizedDepartment.length > 255) {
+      return res.status(400).json({ error: 'กรุณาระบุแผนก ไม่เกิน 255 ตัวอักษร' });
+    }
+    if (typeof password !== 'string' || password.length < 8 || password.length > 255) {
+      return res.status(400).json({ error: 'รหัสผ่านต้องมีความยาว 8-255 ตัวอักษร' });
+    }
+
+    const [result] = await db.query(
+      `INSERT INTO users (username, password_hash, full_name, role, department)
+       VALUES (?, ?, ?, 'user', ?)`,
+      [normalizedUsername, hashPassword(password), normalizedFullName, normalizedDepartment]
+    );
+    res.status(201).json({ message: 'เพิ่มผู้ใช้งานเรียบร้อยแล้ว', userId: result.insertId });
+  } catch (error) {
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ error: 'ชื่อผู้ใช้นี้มีอยู่แล้ว' });
+    }
+    console.error(error);
+    res.status(500).json({ error: 'ไม่สามารถเพิ่มผู้ใช้งานได้' });
+  }
+});
+
+app.put('/api/admin/users/:userId', async (req, res) => {
+  try {
+    const { adminId, username, password, fullName, department } = req.body;
+    if (!await isAdminUser(adminId, req.get('x-admin-password'))) {
+      return res.status(403).json({ error: 'ไม่อนุญาตให้จัดการผู้ใช้งาน' });
+    }
+
+    const userId = Number(req.params.userId);
+    if (!Number.isSafeInteger(userId) || userId <= 0) {
+      return res.status(400).json({ error: 'รหัสผู้ใช้งานไม่ถูกต้อง' });
+    }
+
+    const normalizedUsername = typeof username === 'string' ? username.trim() : '';
+    const normalizedFullName = typeof fullName === 'string' ? fullName.trim() : '';
+    const normalizedDepartment = typeof department === 'string' ? department.trim() : '';
+    if (!/^[a-zA-Z0-9._-]{3,100}$/.test(normalizedUsername)) {
+      return res.status(400).json({ error: 'ชื่อผู้ใช้ต้องยาว 3-100 ตัว และใช้ได้เฉพาะ a-z, 0-9, จุด, ขีดกลาง หรือขีดล่าง' });
+    }
+    if (!normalizedFullName || normalizedFullName.length > 255) {
+      return res.status(400).json({ error: 'กรุณาระบุชื่อ-นามสกุล ไม่เกิน 255 ตัวอักษร' });
+    }
+    if (!normalizedDepartment || normalizedDepartment.length > 255) {
+      return res.status(400).json({ error: 'กรุณาระบุแผนก ไม่เกิน 255 ตัวอักษร' });
+    }
+    if (password !== undefined && password !== '' && (typeof password !== 'string' || password.length < 8 || password.length > 255)) {
+      return res.status(400).json({ error: 'รหัสผ่านใหม่ต้องมีความยาว 8-255 ตัวอักษร' });
+    }
+
+    const [userRows] = await db.query(
+      `SELECT user_id FROM users WHERE user_id = ? AND role = 'user'`,
+      [userId]
+    );
+    if (!userRows.length) {
+      return res.status(404).json({ error: 'ไม่พบผู้ใช้งานนี้' });
+    }
+
+    const values = [normalizedUsername, normalizedFullName, normalizedDepartment];
+    let updateSql = 'UPDATE users SET username = ?, full_name = ?, department = ?';
+    if (typeof password === 'string' && password !== '') {
+      updateSql += ', password_hash = ?';
+      values.push(hashPassword(password));
+    }
+    updateSql += " WHERE user_id = ? AND role = 'user'";
+    values.push(userId);
+    await db.query(updateSql, values);
+    res.json({ message: 'บันทึกข้อมูลผู้ใช้งานเรียบร้อยแล้ว' });
+  } catch (error) {
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ error: 'ชื่อผู้ใช้นี้มีอยู่แล้ว' });
+    }
+    console.error(error);
+    res.status(500).json({ error: 'ไม่สามารถบันทึกข้อมูลผู้ใช้งานได้' });
+  }
+});
+
 // -----------------------------------------------------
 // ส่วน login API
 // - ตรวจสอบ username/password จากฐานข้อมูลก่อน

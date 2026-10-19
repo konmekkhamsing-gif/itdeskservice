@@ -319,6 +319,7 @@
       <a href="/in-progress-tickets.html" class="rounded-xl border border-blue-300 bg-blue-50 px-5 py-2 font-semibold text-blue-800 hover:bg-blue-100">งานระหว่างดำเนินการ</a>
       <a href="/completed-tickets.html" class="rounded-xl border border-slate-300 bg-white px-5 py-2 font-semibold text-slate-700 hover:bg-slate-50">ดูงานที่เสร็จแล้ว</a>
       <button id="createTicketButton" class="bg-blue-600 text-white px-5 py-2 rounded-xl hover:bg-blue-700 transition font-semibold">+ สร้าง Ticket</button>
+      <button id="manageUsersButton" class="rounded-xl border border-violet-300 bg-violet-50 px-5 py-2 font-semibold text-violet-800 hover:bg-violet-100">จัดการผู้ใช้งาน</button>
     </div>
 
     <!-- Create Ticket Form Section -->
@@ -410,7 +411,7 @@
       <div id="notificationList" class="mt-4 space-y-2"></div>
     </div>
 
-    <div class="glass-card rounded-[28px] p-4 mb-4 ring-1 ring-slate-100/80">
+    <div id="ticketFiltersSection" class="glass-card rounded-[28px] p-4 mb-4 ring-1 ring-slate-100/80">
       <div class="grid gap-4 md:grid-cols-5">
         <div>
           <label class="block text-sm font-medium text-slate-700 mb-1">สถานะ</label>
@@ -446,7 +447,7 @@
       </div>
     </div>
 
-    <div class="glass-card rounded-[28px] overflow-hidden border border-slate-100">
+    <div id="ticketTableSection" class="glass-card rounded-[28px] overflow-hidden border border-slate-100">
       <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-slate-200">
           <thead class="bg-slate-50">
@@ -468,6 +469,50 @@
         </table>
       </div>
     </div>
+
+    <section id="userManagementSection" class="hidden glass-card rounded-[28px] p-6 mb-6 ring-1 ring-slate-100/80">
+      <h2 class="text-2xl font-semibold mb-2">จัดการผู้ใช้งาน</h2>
+      <p class="mb-6 text-sm text-slate-600">เพิ่มบัญชีผู้ใช้ แก้ไขชื่อผู้ใช้/ชื่อ-นามสกุล/แผนก หรือกำหนดรหัสผ่านใหม่ โดยเว้นช่องรหัสผ่านว่างหากไม่ต้องการเปลี่ยน</p>
+      <form id="userManagementForm" class="mb-8 grid gap-4 md:grid-cols-2">
+        <input id="managedUserId" type="hidden" />
+        <div>
+          <label for="managedUsername" class="mb-1 block text-sm font-medium text-slate-700">ชื่อผู้ใช้ *</label>
+          <input id="managedUsername" type="text" minlength="3" maxlength="100" pattern="[A-Za-z0-9._-]+" autocomplete="off" required class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2 text-slate-800" />
+        </div>
+        <div>
+          <label for="managedFullName" class="mb-1 block text-sm font-medium text-slate-700">ชื่อ-นามสกุล *</label>
+          <input id="managedFullName" type="text" maxlength="255" required class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2 text-slate-800" />
+        </div>
+        <div>
+          <label for="managedDepartment" class="mb-1 block text-sm font-medium text-slate-700">แผนก *</label>
+          <input id="managedDepartment" type="text" maxlength="255" required class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2 text-slate-800" />
+        </div>
+        <div>
+          <label for="managedPassword" class="mb-1 block text-sm font-medium text-slate-700">รหัสผ่าน <span id="managedPasswordRequiredLabel">(อย่างน้อย 8 ตัวอักษร) *</span></label>
+          <input id="managedPassword" type="password" minlength="8" maxlength="255" autocomplete="new-password" class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2 text-slate-800" />
+          <p id="managedPasswordHelp" class="mt-1 text-xs text-slate-500">ตอนแก้ไขบัญชี เว้นว่างเพื่อคงรหัสผ่านเดิม</p>
+        </div>
+        <div class="flex flex-wrap gap-3 md:col-span-2">
+          <button id="saveManagedUserButton" type="submit" class="rounded-xl bg-violet-600 px-5 py-2 font-semibold text-white hover:bg-violet-700">เพิ่มผู้ใช้</button>
+          <button id="cancelManagedUserEditButton" type="button" class="hidden rounded-xl border border-slate-300 px-5 py-2 text-slate-700 hover:bg-slate-50">ยกเลิกแก้ไข</button>
+        </div>
+        <p id="userManagementMessage" class="text-sm md:col-span-2" role="status"></p>
+      </form>
+
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-slate-200">
+          <thead class="bg-slate-50">
+            <tr>
+              <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-600">ชื่อผู้ใช้</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-600">ชื่อ-นามสกุล</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-600">แผนก</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-600">การทำงาน</th>
+            </tr>
+          </thead>
+          <tbody id="managedUsersTableBody" class="divide-y divide-slate-100"></tbody>
+        </table>
+      </div>
+    </section>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
