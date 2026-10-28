@@ -67,10 +67,10 @@ function render() {
           <div>ผู้แจ้ง: ${escapeHtml(ticket.reporter_name || ticket.user_name || 'ไม่ระบุ')}</div>
           <div>แจ้งเมื่อ: ${formatDate(ticket.reported_at || ticket.created_at)}</div>
         </div>
-        <label for="note-${ticket.ticket_id}" class="muted mt-4 block text-sm font-medium text-slate-600">หมายเหตุการซ่อม</label>
-        <textarea id="note-${ticket.ticket_id}" rows="3" class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">${escapeHtml(ticket.repair_note || '')}</textarea>
-        <label for="completed-at-${ticket.ticket_id}" class="muted mt-3 block text-sm font-medium text-slate-600">วันและเวลาเสร็จงาน <span class="font-normal">(ไม่เลือกจะใช้เวลาปัจจุบัน)</span></label>
-        <input id="completed-at-${ticket.ticket_id}" type="datetime-local" value="${escapeHtml(formatDateTimeLocal(ticket.completed_at))}" class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm md:max-w-sm" />
+        <label for="note-${escapeHtml(ticket.ticket_id)}" class="muted mt-4 block text-sm font-medium text-slate-600">หมายเหตุการซ่อม</label>
+        <textarea id="note-${escapeHtml(ticket.ticket_id)}" rows="3" class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">${escapeHtml(ticket.repair_note || '')}</textarea>
+        <label for="completed-at-${escapeHtml(ticket.ticket_id)}" class="muted mt-3 block text-sm font-medium text-slate-600">วันและเวลาเสร็จงาน <span class="font-normal">(ไม่เลือกจะใช้เวลาปัจจุบัน)</span></label>
+        <input id="completed-at-${escapeHtml(ticket.ticket_id)}" type="datetime-local" value="${escapeHtml(formatDateTimeLocal(ticket.completed_at))}" class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm md:max-w-sm" />
         <div class="mt-3 flex flex-wrap justify-end gap-2">
           <button data-action="save" data-id="${escapeHtml(ticket.ticket_id)}" class="rounded-xl bg-slate-600 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700">บันทึกหมายเหตุ</button>
           <button data-action="complete" data-id="${escapeHtml(ticket.ticket_id)}" class="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700">ปิดงาน / เสร็จแล้ว</button>
@@ -88,7 +88,7 @@ async function updateTicket(button) {
   const ticketId = button.dataset.id;
   const action = button.dataset.action;
   const repairNote = document.getElementById(`note-${ticketId}`).value;
-  const body = { repairNote, adminId: admin.userId };
+  const body = { repairNote };
   if (action === 'complete') {
     if (!window.confirm(`ปิด Ticket #${ticketId} และย้ายไปหน้างานที่เสร็จแล้วหรือไม่?`)) return;
     body.status = 'completed';
@@ -133,9 +133,13 @@ function applyTheme(theme) {
 
 themeToggle.addEventListener('click', () => applyTheme(document.body.classList.contains('dark-mode') ? 'light' : 'dark'));
 searchInput.addEventListener('input', render);
-document.getElementById('logoutButton').addEventListener('click', () => {
-  localStorage.removeItem('helpdeskAuth');
-  window.location.href = '/';
+document.getElementById('logoutButton').addEventListener('click', async () => {
+  try {
+    await fetch('/api/logout', { method: 'POST' });
+  } finally {
+    localStorage.removeItem('helpdeskAuth');
+    window.location.href = '/';
+  }
 });
 applyTheme(localStorage.getItem('helpdeskTheme') || 'light');
 loadTickets();

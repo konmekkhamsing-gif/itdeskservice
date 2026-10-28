@@ -11,6 +11,8 @@ const cors = require('cors');
 const ExcelJS = require('exceljs');
 const mysql = require('mysql2/promise');
 const db = require('./db');
+const { hashPassword, verifyPassword, isLegacyPasswordHash } = require('./lib/password');
+const { normalizeEquipmentInput } = require('./lib/equipment');
 
 const DB_HOST = process.env.DB_HOST || '127.0.0.1';
 const DB_PORT = Number(process.env.DB_PORT || 3306);
@@ -20,11 +22,92 @@ const DB_NAME = process.env.DB_NAME || 'hospital_helpdesk';
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
 const ENABLE_DEMO_ACCOUNTS = process.env.ENABLE_DEMO_ACCOUNTS === 'true';
+const AUTH_COOKIE_NAME = 'helpdesk_session';
+const AUTH_TOKEN_LIFETIME_SECONDS = 8 * 60 * 60;
+const DEPARTMENTS = [
+  'งานเวชศาสตร์ครอบครัวและบริการด้านปฐมภูมิ',
+  'องค์กรแพทย์',
+  'งานผู้ป่วยนอก',
+  'งานอุบัติเหตุฉุกเฉิน',
+  'งานผู้ป่วยใน ตึก1',
+  'งานห้องคลอด',
+  'คลินิคพิเศษ ARV,TB-ASTHMA',
+  'ระบบยา',
+  'งานเทคนิคการแพทย์',
+  'งานกายภาพบำบัด',
+  'งานรังสีวิทยา',
+  'งานแพทย์แผนไทย',
+  'งานโภชนาการ/โรงครัว',
+  'งานเวชระเบียน/ห้องบัตร',
+  'งานจ่ายกลาง',
+  'งานประกันสุขภาพ',
+  'งานธุรการ',
+  'งานยานพาหนะ',
+  'งานสนาม/ซ่อมบำรุง',
+  'กลุ่มการพยาบาล',
+  'งานทันตสาธารณสุข',
+  'จุดคัดกรอง',
+  'คลินิกNCD',
+  'งานการเงิน/บัญชี',
+  'งานพัสดุ',
+  'งานซักฟอก',
+  'ทีม IC',
+  'ทีม ENV',
+  'ทีมPCT',
+  'คณะกรรมการบริหารและ HRD',
+  'งานฝากครรภ์',
+  'งานทำความสะอาด',
+  'จุดซักประวัติระบบทางเดินหายใจ (ARI)',
+  'จิตเวชและยาเสพติด',
+  'งานผู้ป่วยใน ตึก2',
+  'พัฒนาการเด็ก(PCU)',
+  'พัฒนาการเด็ก(จิตเวช)',
+  'ห้องผ่าตัด',
+  'งานเทคโนโลยีสารสนเทศ'
+];
 
-// -----------------------------------------------------
-// ส่วน helper สำหรับ hash password
-// -----------------------------------------------------
-const hashPassword = (password) => crypto.createHash('sha256').update(String(password)).digest('hex');
+function readCookie(request, name) {
+  const cookieHeader = request.get('cookie') || '';
+  for (const cookie of cookieHeader.split(';')) {
+    const separator = cookie.indexOf('=');
+    if (separator < 0 || cookie.slice(0, separator).trim() !== name) continue;
+    try {
+      return decodeURIComponent(cookie.slice(separator + 1).trim());
+    } catch (_error) {
+      return null;
+    }
+  }
+  return null;
+}
+
+async function setAuthCookie(response, userId) {
+  const token = crypto.randomBytes(32).toString('base64url');
+  const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+  await db.query('DELETE FROM auth_sessions WHERE expires_at <= NOW()');
+  await db.query(
+    'INSERT INTO auth_sessions (user_id, token_hash, expires_at) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 8 HOUR))',
+    [Number(userId), tokenHash]
+  );
+  const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
+  response.setHeader(
+    'Set-Cookie',
+    `${AUTH_COOKIE_NAME}=${encodeURIComponent(token)}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${AUTH_TOKEN_LIFETIME_SECONDS}${secure}`
+  );
+}
+
+function clearAuthCookie(response) {
+  const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
+  response.setHeader(
+    'Set-Cookie',
+    `${AUTH_COOKIE_NAME}=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0${secure}`
+  );
+}
+
+function requireAdmin(request, response) {
+  if (request.auth?.role === 'admin') return true;
+  response.status(403).json({ error: 'ต้องเข้าสู่ระบบด้วยบัญชีแอดมิน' });
+  return false;
+}
 
 // -----------------------------------------------------
 // ส่วนตั้งค่าฐานข้อมูลและ schema
@@ -85,11 +168,21 @@ async function ensureDatabaseSchema() {
       CONSTRAINT fk_tickets_equipment FOREIGN KEY (equipment_id) REFERENCES equipments(equipment_id) ON DELETE RESTRICT ON UPDATE CASCADE,
       CONSTRAINT fk_tickets_admin FOREIGN KEY (admin_id) REFERENCES users(user_id) ON DELETE SET NULL ON UPDATE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+    CREATE TABLE IF NOT EXISTS auth_sessions (
+      session_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      user_id INT NOT NULL,
+      token_hash CHAR(64) NOT NULL UNIQUE,
+      expires_at DATETIME NOT NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT fk_auth_sessions_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE ON UPDATE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
   `);
 
   await connection.query(`ALTER TABLE users CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`);
   await connection.query(`ALTER TABLE equipments CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`);
   await connection.query(`ALTER TABLE tickets CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`);
+  await connection.query('DELETE FROM auth_sessions WHERE expires_at <= NOW()');
 
   await connection.end();
 }
@@ -102,10 +195,10 @@ async function ensureDatabaseSchema() {
 async function seedInitialData() {
   try {
     const admins = [
-      { username: 'admin02', password: 'admin123', fullName: 'Preecha IT', department: 'IT Support' },
-      { username: 'admin03', password: 'admin123', fullName: 'Suda Tech', department: 'IT Support' },
-      { username: 'admin04', password: 'admin123', fullName: 'Kittiya Admin', department: 'IT Support' },
-      { username: 'admin05', password: 'admin123', fullName: 'Nattapong IT', department: 'IT Support' }
+      { username: 'admin02', password: 'admin123', fullName: 'Preecha IT', department: 'งานเทคโนโลยีสารสนเทศ' },
+      { username: 'admin03', password: 'admin123', fullName: 'Suda Tech', department: 'งานเทคโนโลยีสารสนเทศ' },
+      { username: 'admin04', password: 'admin123', fullName: 'Kittiya Admin', department: 'งานเทคโนโลยีสารสนเทศ' },
+      { username: 'admin05', password: 'admin123', fullName: 'Nattapong IT', department: 'งานเทคโนโลยีสารสนเทศ' }
     ];
 
     if (ENABLE_DEMO_ACCOUNTS) {
@@ -113,40 +206,35 @@ async function seedInitialData() {
         await db.query(
           `INSERT IGNORE INTO users (username, password_hash, full_name, role, department)
            VALUES (?, ?, ?, 'admin', ?)`,
-          [admin.username, hashPassword(admin.password), admin.fullName, admin.department]
+          [admin.username, await hashPassword(admin.password), admin.fullName, admin.department]
         );
       }
     }
 
     const equipments = [
-      { equipment_code: 'PC-ER-02', equipment_type: 'Computer', department: 'ER', room: 'Room 2', status: 'active' },
-      { equipment_code: 'MON-ER-06', equipment_type: 'Monitor', department: 'ER', room: 'Room 4', status: 'active' },
-      { equipment_code: 'BP-ER-07', equipment_type: 'Blood Pressure Monitor', department: 'ER', room: 'Room 5', status: 'active' },
-      { equipment_code: 'VENT-ER-08', equipment_type: 'Ventilator', department: 'ER', room: 'Room 2', status: 'active' },
-      { equipment_code: 'ECG-ER-09', equipment_type: 'ECG Machine', department: 'ER', room: 'Room 5', status: 'active' },
-      { equipment_code: 'DEF-ER-10', equipment_type: 'Defibrillator', department: 'ER', room: 'Room 1', status: 'active' },
-      { equipment_code: 'PC-OPD-04', equipment_type: 'Computer', department: 'OPD', room: 'Counter 2', status: 'active' },
-      { equipment_code: 'MON-OPD-05', equipment_type: 'Monitor', department: 'OPD', room: 'Counter 1', status: 'active' },
-      { equipment_code: 'PR-OPD-06', equipment_type: 'Printer', department: 'OPD', room: 'Counter 3', status: 'active' },
-      { equipment_code: 'ECG-OPD-07', equipment_type: 'ECG Machine', department: 'OPD', room: 'Room 4', status: 'active' },
-      { equipment_code: 'XR-OPD-08', equipment_type: 'X-Ray Machine', department: 'OPD', room: 'Room 2', status: 'active' },
-      { equipment_code: 'MON-ICU-05', equipment_type: 'Monitor', department: 'ICU', room: 'Room 1', status: 'active' },
-      { equipment_code: 'VENT-ICU-06', equipment_type: 'Ventilator', department: 'ICU', room: 'Room 2', status: 'active' },
-      { equipment_code: 'PUMP-ICU-07', equipment_type: 'Infusion Pump', department: 'ICU', room: 'Room 1', status: 'active' },
-      { equipment_code: 'IV-ICU-08', equipment_type: 'IV Pump', department: 'ICU', room: 'Room 3', status: 'active' },
-      { equipment_code: 'OXY-ICU-09', equipment_type: 'Oxygen Concentrator', department: 'ICU', room: 'Room 4', status: 'active' },
-      { equipment_code: 'MIC-LAB-01', equipment_type: 'Microscope', department: 'Lab', room: 'Lab 1', status: 'active' },
-      { equipment_code: 'HEM-LAB-02', equipment_type: 'Hematology Analyzer', department: 'Lab', room: 'Lab 2', status: 'active' },
-      { equipment_code: 'BIO-LAB-03', equipment_type: 'Biochemistry Analyzer', department: 'Lab', room: 'Lab 3', status: 'active' },
-      { equipment_code: 'CHEM-LAB-04', equipment_type: 'Chemical Analyzer', department: 'Lab', room: 'Lab 4', status: 'active' },
-      { equipment_code: 'CENT-LAB-05', equipment_type: 'Centrifuge', department: 'Lab', room: 'Lab 1', status: 'active' },
-      { equipment_code: 'XR-RAD-01', equipment_type: 'X-Ray Machine', department: 'Radiology', room: 'X-Ray Room 1', status: 'active' },
-      { equipment_code: 'XR-RAD-02', equipment_type: 'X-Ray Machine', department: 'Radiology', room: 'X-Ray Room 2', status: 'active' },
-      { equipment_code: 'CT-RAD-01', equipment_type: 'CT Scanner', department: 'Radiology', room: 'CT Room', status: 'active' },
-      { equipment_code: 'MRI-RAD-01', equipment_type: 'MRI Scanner', department: 'Radiology', room: 'MRI Room', status: 'active' },
-      { equipment_code: 'PC-PH-01', equipment_type: 'Computer', department: 'Pharmacy', room: 'Pharmacy Counter', status: 'active' },
-      { equipment_code: 'FR-PH-02', equipment_type: 'Medical Refrigerator', department: 'Pharmacy', room: 'Pharmacy Storage', status: 'active' },
-      { equipment_code: 'MED-PH-03', equipment_type: 'Automated Dispensing Cabinet', department: 'Pharmacy', room: 'Pharmacy', status: 'active' }
+      { equipment_code: 'PC-งานอุบัติเหตุฉุกเฉิน-02', equipment_type: 'Computer', department: 'งานอุบัติเหตุฉุกเฉิน', room: 'Room 2', status: 'active' },
+      { equipment_code: 'MON-งานอุบัติเหตุฉุกเฉิน-06', equipment_type: 'Monitor', department: 'งานอุบัติเหตุฉุกเฉิน', room: 'Room 4', status: 'active' },
+      { equipment_code: 'BP-งานอุบัติเหตุฉุกเฉิน-07', equipment_type: 'Blood Pressure Monitor', department: 'งานอุบัติเหตุฉุกเฉิน', room: 'Room 5', status: 'active' },
+      { equipment_code: 'VENT-งานอุบัติเหตุฉุกเฉิน-08', equipment_type: 'Ventilator', department: 'งานอุบัติเหตุฉุกเฉิน', room: 'Room 2', status: 'active' },
+      { equipment_code: 'ECG-งานอุบัติเหตุฉุกเฉิน-09', equipment_type: 'ECG Machine', department: 'งานอุบัติเหตุฉุกเฉิน', room: 'Room 5', status: 'active' },
+      { equipment_code: 'DEF-งานอุบัติเหตุฉุกเฉิน-10', equipment_type: 'Defibrillator', department: 'งานอุบัติเหตุฉุกเฉิน', room: 'Room 1', status: 'active' },
+      { equipment_code: 'PC-งานผู้ป่วยนอก-04', equipment_type: 'Computer', department: 'งานผู้ป่วยนอก', room: 'Counter 2', status: 'active' },
+      { equipment_code: 'MON-งานผู้ป่วยนอก-05', equipment_type: 'Monitor', department: 'งานผู้ป่วยนอก', room: 'Counter 1', status: 'active' },
+      { equipment_code: 'PR-งานผู้ป่วยนอก-06', equipment_type: 'Printer', department: 'งานผู้ป่วยนอก', room: 'Counter 3', status: 'active' },
+      { equipment_code: 'ECG-งานผู้ป่วยนอก-07', equipment_type: 'ECG Machine', department: 'งานผู้ป่วยนอก', room: 'Room 4', status: 'active' },
+      { equipment_code: 'XR-งานผู้ป่วยนอก-08', equipment_type: 'X-Ray Machine', department: 'งานผู้ป่วยนอก', room: 'Room 2', status: 'active' },
+      { equipment_code: 'MIC-งานเทคนิคการแพทย์-01', equipment_type: 'Microscope', department: 'งานเทคนิคการแพทย์', room: 'Lab 1', status: 'active' },
+      { equipment_code: 'HEM-งานเทคนิคการแพทย์-02', equipment_type: 'Hematology Analyzer', department: 'งานเทคนิคการแพทย์', room: 'Lab 2', status: 'active' },
+      { equipment_code: 'BIO-งานเทคนิคการแพทย์-03', equipment_type: 'Biochemistry Analyzer', department: 'งานเทคนิคการแพทย์', room: 'Lab 3', status: 'active' },
+      { equipment_code: 'CHEM-งานเทคนิคการแพทย์-04', equipment_type: 'Chemical Analyzer', department: 'งานเทคนิคการแพทย์', room: 'Lab 4', status: 'active' },
+      { equipment_code: 'CENT-งานเทคนิคการแพทย์-05', equipment_type: 'Centrifuge', department: 'งานเทคนิคการแพทย์', room: 'Lab 1', status: 'active' },
+      { equipment_code: 'XR-งานรังสีวิทยา-01', equipment_type: 'X-Ray Machine', department: 'งานรังสีวิทยา', room: 'X-Ray Room 1', status: 'active' },
+      { equipment_code: 'XR-งานรังสีวิทยา-02', equipment_type: 'X-Ray Machine', department: 'งานรังสีวิทยา', room: 'X-Ray Room 2', status: 'active' },
+      { equipment_code: 'CT-งานรังสีวิทยา-01', equipment_type: 'CT Scanner', department: 'งานรังสีวิทยา', room: 'CT Room', status: 'active' },
+      { equipment_code: 'MRI-งานรังสีวิทยา-01', equipment_type: 'MRI Scanner', department: 'งานรังสีวิทยา', room: 'MRI Room', status: 'active' },
+      { equipment_code: 'PC-ระบบยา-01', equipment_type: 'Computer', department: 'ระบบยา', room: 'Pharmacy Counter', status: 'active' },
+      { equipment_code: 'FR-ระบบยา-02', equipment_type: 'Medical Refrigerator', department: 'ระบบยา', room: 'Pharmacy Storage', status: 'active' },
+      { equipment_code: 'MED-ระบบยา-03', equipment_type: 'Automated Dispensing Cabinet', department: 'ระบบยา', room: 'Pharmacy', status: 'active' }
     ];
 
     for (const item of equipments) {
@@ -165,6 +253,121 @@ async function seedInitialData() {
   }
 }
 
+async function migrateLegacyDepartments() {
+  const connection = await db.getConnection();
+  try {
+    await connection.beginTransaction();
+    await connection.query(`
+      UPDATE equipments
+      SET department = CASE LOWER(department)
+        WHEN 'er' THEN 'งานอุบัติเหตุฉุกเฉิน'
+        WHEN 'opd' THEN 'งานผู้ป่วยนอก'
+        WHEN 'lab' THEN 'งานเทคนิคการแพทย์'
+        WHEN 'pharmacy' THEN 'ระบบยา'
+        WHEN 'radiology' THEN 'งานรังสีวิทยา'
+        ELSE department
+      END
+      WHERE LOWER(department) IN ('er', 'opd', 'lab', 'pharmacy', 'radiology')
+    `);
+    await connection.query(`
+      UPDATE users
+      SET department = CASE LOWER(department)
+        WHEN 'er' THEN 'งานอุบัติเหตุฉุกเฉิน'
+        WHEN 'opd' THEN 'งานผู้ป่วยนอก'
+        WHEN 'lab' THEN 'งานเทคนิคการแพทย์'
+        WHEN 'pharmacy' THEN 'ระบบยา'
+        WHEN 'radiology' THEN 'งานรังสีวิทยา'
+        WHEN 'it support' THEN 'งานเทคโนโลยีสารสนเทศ'
+        ELSE department
+      END
+      WHERE LOWER(department) IN ('er', 'opd', 'lab', 'pharmacy', 'radiology', 'it support')
+    `);
+    await connection.query(`UPDATE users SET department = NULL WHERE LOWER(department) = 'icu'`);
+    await connection.query(`UPDATE equipments SET status = 'inactive' WHERE LOWER(department) = 'icu' AND status <> 'inactive'`);
+    await connection.commit();
+    console.log('Migrated legacy department values');
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+}
+
+async function migrateActiveEquipmentCodes() {
+  const connection = await db.getConnection();
+  try {
+    const [rows] = await connection.query(
+      `SELECT equipment_id, equipment_code, department
+       FROM equipments
+       WHERE status = 'active'
+       ORDER BY equipment_id`
+    );
+    const migrations = rows.map((row) => {
+      if (!DEPARTMENTS.includes(row.department)) {
+        throw new Error(`Cannot migrate active equipment ${row.equipment_code}: unknown department "${row.department}"`);
+      }
+
+      const code = String(row.equipment_code);
+      const match = code.match(/^([A-Za-z0-9]+)-.*-(\d+)$/) || code.match(/^([A-Za-z0-9]+)-(\d+)$/);
+      if (!match) {
+        throw new Error(`Cannot migrate active equipment code "${code}" to include its department`);
+      }
+      const number = match[match.length - 1];
+      const targetCode = `${match[1]}-${row.department}-${number}`;
+      if (targetCode.length > 50) {
+        throw new Error(`Equipment code "${targetCode}" exceeds the 50-character database limit`);
+      }
+      return { equipmentId: row.equipment_id, currentCode: code, targetCode };
+    });
+
+    const targetCodes = new Set();
+    for (const item of migrations) {
+      if (targetCodes.has(item.targetCode)) {
+        throw new Error(`Duplicate equipment code generated during migration: "${item.targetCode}"`);
+      }
+      targetCodes.add(item.targetCode);
+    }
+
+    const [conflicts] = await connection.query(
+      `SELECT equipment_id, equipment_code
+       FROM equipments
+       WHERE equipment_code IN (?)`,
+      [[...targetCodes]]
+    );
+    const migratingIds = new Set(migrations.map((item) => item.equipmentId));
+    const conflictingRows = conflicts.filter((row) => !migratingIds.has(row.equipment_id));
+    if (conflictingRows.length) {
+      throw new Error(`Target equipment code already exists: "${conflictingRows[0].equipment_code}"`);
+    }
+
+    await connection.beginTransaction();
+    for (const item of migrations) {
+      if (item.currentCode !== item.targetCode) {
+        await connection.query(
+          'UPDATE equipments SET equipment_code = ? WHERE equipment_id = ?',
+          [`__MIGRATING_EQUIPMENT_${item.equipmentId}__`, item.equipmentId]
+        );
+      }
+    }
+    for (const item of migrations) {
+      if (item.currentCode !== item.targetCode) {
+        await connection.query(
+          'UPDATE equipments SET equipment_code = ? WHERE equipment_id = ?',
+          [item.targetCode, item.equipmentId]
+        );
+      }
+    }
+    await connection.commit();
+    console.log(`Ensured department-based equipment codes for ${migrations.length} active devices`);
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+}
+
 // -----------------------------------------------------
 // ส่วน initialize database ตอนเริ่มแอป
 // - เรียก create schema และ seed data
@@ -173,6 +376,8 @@ async function seedInitialData() {
 async function initializeDatabase() {
   try {
     await ensureDatabaseSchema();
+    await migrateLegacyDepartments();
+    await migrateActiveEquipmentCodes();
     await seedInitialData();
 
     try {
@@ -188,12 +393,13 @@ async function initializeDatabase() {
         INNER JOIN equipments e ON e.equipment_id = t.equipment_id
         SET urgency = CASE
           WHEN LOWER(t.issue_detail) REGEXP 'เสียชีวิต|หยุดหายใจ|ฉุกเฉิน|ไฟไหม้|กระทบชีวิต'
-            OR (LOWER(e.equipment_type) REGEXP 'ventilator|defibrillator|oxygen' AND LOWER(e.department) IN ('icu', 'er')) THEN 'critical'
+            OR (LOWER(e.equipment_type) REGEXP 'ventilator|defibrillator|oxygen'
+              AND LOWER(e.department) IN ('icu', 'er', 'งานอุบัติเหตุฉุกเฉิน')) THEN 'critical'
           WHEN LOWER(t.issue_detail) REGEXP 'ใช้ไม่ได้|เปิดไม่ติด|ระบบล่ม|ด่วน|เร่งด่วน|ต้องรีบ|รีบ|กระทบทั้งแผนก|เครื่องเสีย|ไม่ทำงาน|ดับ'
             OR LOWER(e.equipment_type) REGEXP 'ventilator|defibrillator|oxygen|infusion|iv pump|ct scanner|mri scanner|x-ray'
-            OR LOWER(e.department) IN ('icu', 'er') THEN 'high'
+            OR LOWER(e.department) IN ('icu', 'er', 'งานอุบัติเหตุฉุกเฉิน') THEN 'high'
           WHEN LOWER(t.issue_detail) REGEXP 'ช้า|ผิดพลาด|แจ้งเตือน|พิมพ์ไม่ได้'
-            OR LOWER(e.department) IN ('radiology', 'lab', 'pharmacy') THEN 'medium'
+            OR LOWER(e.department) IN ('radiology', 'lab', 'pharmacy', 'งานรังสีวิทยา', 'งานเทคนิคการแพทย์', 'ระบบยา') THEN 'medium'
           ELSE 'low'
         END
       `);
@@ -204,6 +410,7 @@ async function initializeDatabase() {
     }
   } catch (err) {
     console.warn('Database initialization failed:', err.message || err);
+    throw err;
   }
 }
 
@@ -213,16 +420,7 @@ async function initializeDatabase() {
 const app = express();
 const PORT = process.env.PORT || 3000;
 const adminNotifications = [];
-const DEMO_USERS = {
-  admin01: { password: 'admin123', role: 'admin', userId: 1, fullName: 'Somchai IT', department: 'IT Support' },
-  admin02: { password: 'admin123', role: 'admin', userId: 6, fullName: 'Preecha IT', department: 'IT Support' },
-  admin03: { password: 'admin123', role: 'admin', userId: 7, fullName: 'Suda Tech', department: 'IT Support' },
-  admin04: { password: 'admin123', role: 'admin', userId: 8, fullName: 'Kittiya Admin', department: 'IT Support' },
-  admin05: { password: 'admin123', role: 'admin', userId: 9, fullName: 'Nattapong IT', department: 'IT Support' },
-  nurse01: { password: 'user123', role: 'user', userId: 2, fullName: 'Somsri Nurse', department: 'ER' },
-  nurse02: { password: 'user123', role: 'user', userId: 4, fullName: 'Nattaya Nurse', department: 'OPD' },
-  nurse03: { password: 'user123', role: 'user', userId: 5, fullName: 'Kanya Nurse', department: 'ICU' }
-};
+
 
 
 // -----------------------------------------------------
@@ -232,6 +430,43 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
+app.use('/api', async (req, res, next) => {
+  if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+    const origin = req.get('origin');
+    if (origin) {
+      try {
+        if (new URL(origin).host !== req.get('host')) {
+          return res.status(403).json({ error: 'คำขอจากแหล่งที่มาไม่ถูกอนุญาต' });
+        }
+      } catch (_error) {
+        return res.status(403).json({ error: 'แหล่งที่มาของคำขอไม่ถูกต้อง' });
+      }
+    }
+  }
+
+  if (req.path === '/login' || req.path === '/health') return next();
+
+  const sessionToken = readCookie(req, AUTH_COOKIE_NAME);
+  if (typeof sessionToken !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(sessionToken)) {
+    return res.status(401).json({ error: 'กรุณาเข้าสู่ระบบใหม่' });
+  }
+
+  try {
+    const [users] = await db.query(
+      `SELECT u.user_id, u.username, u.full_name, u.role, u.department
+       FROM auth_sessions s
+       INNER JOIN users u ON u.user_id = s.user_id
+       WHERE s.token_hash = ? AND s.expires_at > NOW()`,
+      [crypto.createHash('sha256').update(sessionToken).digest('hex')]
+    );
+    if (!users.length) return res.status(401).json({ error: 'บัญชีผู้ใช้ไม่พร้อมใช้งาน กรุณาเข้าสู่ระบบใหม่' });
+    req.auth = users[0];
+    return next();
+  } catch (error) {
+    console.error('API authentication failed:', error);
+    return res.status(500).json({ error: 'ไม่สามารถตรวจสอบสิทธิ์ได้' });
+  }
+});
 
 // -----------------------------------------------------
 // ส่วนถามตอบด้วย Gemini API
@@ -425,8 +660,9 @@ app.get('/api/health', (_req, res) => {
 // - รายงานตามแผนก/ประเภทอุปกรณ์/ประเภท ticket
 // - คำนวณค่า SLA เฉลี่ย
 // -----------------------------------------------------
-app.get('/api/admin/analytics', async (_req, res) => {
+app.get('/api/admin/analytics', async (req, res) => {
   try {
+    if (!requireAdmin(req, res)) return;
     const [departmentRows] = await db.query(
       `SELECT e.department, COUNT(*) AS ticket_count
        FROM tickets t
@@ -473,35 +709,23 @@ app.get('/api/admin/analytics', async (_req, res) => {
 // -----------------------------------------------------
 // ส่วนแจ้งเตือนสำหรับ Admin
 // -----------------------------------------------------
-app.get('/api/admin/notifications', (_req, res) => {
+app.get('/api/admin/notifications', (req, res) => {
+  if (!requireAdmin(req, res)) return;
   res.json({
     count: adminNotifications.length,
     items: adminNotifications.slice(0, 10)
   });
 });
 
-app.delete('/api/admin/notifications', (_req, res) => {
+app.delete('/api/admin/notifications', (req, res) => {
+  if (!requireAdmin(req, res)) return;
   adminNotifications.length = 0;
   res.json({ message: 'ล้างแจ้งเตือนเรียบร้อยแล้ว' });
 });
 
-async function isAdminUser(userId, password) {
-  if (typeof password !== 'string' || !password) return false;
-  const [rows] = await db.query(
-    'SELECT password_hash FROM users WHERE user_id = ? AND role = ?',
-    [Number(userId), 'admin']
-  );
-  if (!rows.length) return false;
-  const submittedHash = Buffer.from(hashPassword(password), 'hex');
-  const storedHash = Buffer.from(rows[0].password_hash, 'hex');
-  return submittedHash.length === storedHash.length && crypto.timingSafeEqual(submittedHash, storedHash);
-}
-
 app.get('/api/admin/users', async (req, res) => {
   try {
-    if (!await isAdminUser(req.query.adminId, req.get('x-admin-password'))) {
-      return res.status(403).json({ error: 'ไม่อนุญาตให้จัดการผู้ใช้งาน' });
-    }
+    if (!requireAdmin(req, res)) return;
 
     const [users] = await db.query(
       `SELECT user_id, username, full_name, department
@@ -518,10 +742,8 @@ app.get('/api/admin/users', async (req, res) => {
 
 app.post('/api/admin/users', async (req, res) => {
   try {
-    const { adminId, username, password, fullName, department } = req.body;
-    if (!await isAdminUser(adminId, req.get('x-admin-password'))) {
-      return res.status(403).json({ error: 'ไม่อนุญาตให้จัดการผู้ใช้งาน' });
-    }
+    const { username, password, fullName, department } = req.body;
+    if (!requireAdmin(req, res)) return;
 
     const normalizedUsername = typeof username === 'string' ? username.trim() : '';
     const normalizedFullName = typeof fullName === 'string' ? fullName.trim() : '';
@@ -532,8 +754,8 @@ app.post('/api/admin/users', async (req, res) => {
     if (!normalizedFullName || normalizedFullName.length > 255) {
       return res.status(400).json({ error: 'กรุณาระบุชื่อ-นามสกุล ไม่เกิน 255 ตัวอักษร' });
     }
-    if (!normalizedDepartment || normalizedDepartment.length > 255) {
-      return res.status(400).json({ error: 'กรุณาระบุแผนก ไม่เกิน 255 ตัวอักษร' });
+    if (!DEPARTMENTS.includes(normalizedDepartment)) {
+      return res.status(400).json({ error: 'กรุณาเลือกแผนกจากรายการที่กำหนด' });
     }
     if (typeof password !== 'string' || password.length < 8 || password.length > 255) {
       return res.status(400).json({ error: 'รหัสผ่านต้องมีความยาว 8-255 ตัวอักษร' });
@@ -542,7 +764,7 @@ app.post('/api/admin/users', async (req, res) => {
     const [result] = await db.query(
       `INSERT INTO users (username, password_hash, full_name, role, department)
        VALUES (?, ?, ?, 'user', ?)`,
-      [normalizedUsername, hashPassword(password), normalizedFullName, normalizedDepartment]
+      [normalizedUsername, await hashPassword(password), normalizedFullName, normalizedDepartment]
     );
     res.status(201).json({ message: 'เพิ่มผู้ใช้งานเรียบร้อยแล้ว', userId: result.insertId });
   } catch (error) {
@@ -556,10 +778,8 @@ app.post('/api/admin/users', async (req, res) => {
 
 app.put('/api/admin/users/:userId', async (req, res) => {
   try {
-    const { adminId, username, password, fullName, department } = req.body;
-    if (!await isAdminUser(adminId, req.get('x-admin-password'))) {
-      return res.status(403).json({ error: 'ไม่อนุญาตให้จัดการผู้ใช้งาน' });
-    }
+    const { username, password, fullName, department } = req.body;
+    if (!requireAdmin(req, res)) return;
 
     const userId = Number(req.params.userId);
     if (!Number.isSafeInteger(userId) || userId <= 0) {
@@ -575,8 +795,8 @@ app.put('/api/admin/users/:userId', async (req, res) => {
     if (!normalizedFullName || normalizedFullName.length > 255) {
       return res.status(400).json({ error: 'กรุณาระบุชื่อ-นามสกุล ไม่เกิน 255 ตัวอักษร' });
     }
-    if (!normalizedDepartment || normalizedDepartment.length > 255) {
-      return res.status(400).json({ error: 'กรุณาระบุแผนก ไม่เกิน 255 ตัวอักษร' });
+    if (!DEPARTMENTS.includes(normalizedDepartment)) {
+      return res.status(400).json({ error: 'กรุณาเลือกแผนกจากรายการที่กำหนด' });
     }
     if (password !== undefined && password !== '' && (typeof password !== 'string' || password.length < 8 || password.length > 255)) {
       return res.status(400).json({ error: 'รหัสผ่านใหม่ต้องมีความยาว 8-255 ตัวอักษร' });
@@ -594,7 +814,7 @@ app.put('/api/admin/users/:userId', async (req, res) => {
     let updateSql = 'UPDATE users SET username = ?, full_name = ?, department = ?';
     if (typeof password === 'string' && password !== '') {
       updateSql += ', password_hash = ?';
-      values.push(hashPassword(password));
+      values.push(await hashPassword(password));
     }
     updateSql += " WHERE user_id = ? AND role = 'user'";
     values.push(userId);
@@ -609,16 +829,111 @@ app.put('/api/admin/users/:userId', async (req, res) => {
   }
 });
 
+app.get('/api/admin/equipments', async (req, res) => {
+  try {
+    if (!requireAdmin(req, res)) return;
+
+    const [equipments] = await db.query(`
+      SELECT e.equipment_id, e.equipment_code, e.equipment_type, e.department, e.room, e.status,
+             COUNT(t.ticket_id) AS ticket_count
+      FROM equipments e
+      LEFT JOIN tickets t ON t.equipment_id = e.equipment_id
+      GROUP BY e.equipment_id, e.equipment_code, e.equipment_type, e.department, e.room, e.status
+      ORDER BY e.department, e.equipment_code
+    `);
+    res.json(equipments);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'ไม่สามารถดึงรายการอุปกรณ์ได้' });
+  }
+});
+
+app.post('/api/admin/equipments', async (req, res) => {
+  try {
+    if (!requireAdmin(req, res)) return;
+
+    const equipment = normalizeEquipmentInput(req.body, DEPARTMENTS);
+    if (equipment.error) return res.status(400).json({ error: equipment.error });
+
+    const [result] = await db.query(
+      `INSERT INTO equipments (equipment_code, equipment_type, department, room, status)
+       VALUES (?, ?, ?, ?, ?)`,
+      [equipment.equipmentCode, equipment.equipmentType, equipment.department, equipment.room, equipment.status]
+    );
+    res.status(201).json({ message: 'เพิ่มอุปกรณ์เรียบร้อยแล้ว', equipmentId: result.insertId });
+  } catch (error) {
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ error: 'รหัสอุปกรณ์นี้มีอยู่แล้ว' });
+    }
+    console.error(error);
+    res.status(500).json({ error: 'ไม่สามารถเพิ่มอุปกรณ์ได้' });
+  }
+});
+
+app.put('/api/admin/equipments/:equipmentId', async (req, res) => {
+  try {
+    if (!requireAdmin(req, res)) return;
+
+    const equipmentId = Number(req.params.equipmentId);
+    if (!Number.isSafeInteger(equipmentId) || equipmentId <= 0) {
+      return res.status(400).json({ error: 'รหัสอุปกรณ์ไม่ถูกต้อง' });
+    }
+    const equipment = normalizeEquipmentInput(req.body, DEPARTMENTS);
+    if (equipment.error) return res.status(400).json({ error: equipment.error });
+
+    const [result] = await db.query(
+      `UPDATE equipments
+       SET equipment_code = ?, equipment_type = ?, department = ?, room = ?, status = ?
+       WHERE equipment_id = ?`,
+      [equipment.equipmentCode, equipment.equipmentType, equipment.department, equipment.room, equipment.status, equipmentId]
+    );
+    if (!result.affectedRows) {
+      const [rows] = await db.query('SELECT equipment_id FROM equipments WHERE equipment_id = ?', [equipmentId]);
+      if (!rows.length) return res.status(404).json({ error: 'ไม่พบอุปกรณ์นี้' });
+    }
+    res.json({ message: 'บันทึกข้อมูลอุปกรณ์เรียบร้อยแล้ว' });
+  } catch (error) {
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ error: 'รหัสอุปกรณ์นี้มีอยู่แล้ว' });
+    }
+    console.error(error);
+    res.status(500).json({ error: 'ไม่สามารถบันทึกข้อมูลอุปกรณ์ได้' });
+  }
+});
+
+app.delete('/api/admin/equipments/:equipmentId', async (req, res) => {
+  try {
+    if (!requireAdmin(req, res)) return;
+
+    const equipmentId = Number(req.params.equipmentId);
+    if (!Number.isSafeInteger(equipmentId) || equipmentId <= 0) {
+      return res.status(400).json({ error: 'รหัสอุปกรณ์ไม่ถูกต้อง' });
+    }
+    const [result] = await db.query(
+      `UPDATE equipments SET status = 'inactive' WHERE equipment_id = ?`,
+      [equipmentId]
+    );
+    if (!result.affectedRows) {
+      const [rows] = await db.query('SELECT equipment_id FROM equipments WHERE equipment_id = ?', [equipmentId]);
+      if (!rows.length) return res.status(404).json({ error: 'ไม่พบอุปกรณ์นี้' });
+    }
+    res.json({ message: 'ปิดใช้งานอุปกรณ์แล้ว โดยเก็บประวัติ Ticket เดิมไว้' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'ไม่สามารถลบ/ปิดใช้งานอุปกรณ์ได้' });
+  }
+});
+
 // -----------------------------------------------------
 // ส่วน login API
 // - ตรวจสอบ username/password จากฐานข้อมูลก่อน
-// - fallback ไปที่ DEMO_USERS เฉพาะเมื่อเปิดใช้งาน demo accounts อย่างชัดเจน
+// - สร้าง session cookie ที่เซิร์ฟเวอร์ตรวจลายเซ็นและวันหมดอายุ
 // -----------------------------------------------------
 app.post('/api/login', async (req, res) => {
   try {
     const { username, password } = req.body;
 
-    if (!username || !password) {
+    if (typeof username !== 'string' || !username || typeof password !== 'string' || !password) {
       return res.status(400).json({ error: 'กรุณากรอกชื่อผู้ใช้งานและรหัสผ่าน' });
     }
 
@@ -628,7 +943,15 @@ app.post('/api/login', async (req, res) => {
     );
 
     const dbUser = dbUserRows[0];
-    if (dbUser && dbUser.password_hash === hashPassword(password)) {
+    if (dbUser && await verifyPassword(password, dbUser.password_hash)) {
+      if (isLegacyPasswordHash(dbUser.password_hash)) {
+        const upgradedHash = await hashPassword(password);
+        await db.query(
+          'UPDATE users SET password_hash = ? WHERE user_id = ? AND password_hash = ?',
+          [upgradedHash, dbUser.user_id, dbUser.password_hash]
+        );
+      }
+      await setAuthCookie(res, dbUser.user_id);
       return res.json({
         message: 'เข้าสู่ระบบสำเร็จ',
         userId: dbUser.user_id,
@@ -639,22 +962,25 @@ app.post('/api/login', async (req, res) => {
       });
     }
 
-    const userRecord = ENABLE_DEMO_ACCOUNTS ? DEMO_USERS[username] : null;
-    if (!userRecord || userRecord.password !== password) {
-      return res.status(401).json({ error: 'ชื่อผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง' });
-    }
-
-    res.json({
-      message: 'เข้าสู่ระบบสำเร็จ',
-      userId: userRecord.userId,
-      username,
-      role: userRecord.role,
-      fullName: userRecord.fullName,
-      department: userRecord.department || null
-    });
+    return res.status(401).json({ error: 'ชื่อผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง' });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'ไม่สามารถเข้าสู่ระบบได้' });
+  }
+});
+
+app.post('/api/logout', async (req, res) => {
+  try {
+    const token = readCookie(req, AUTH_COOKIE_NAME);
+    await db.query(
+      'DELETE FROM auth_sessions WHERE token_hash = ?',
+      [crypto.createHash('sha256').update(token).digest('hex')]
+    );
+    clearAuthCookie(res);
+    return res.json({ message: 'ออกจากระบบเรียบร้อยแล้ว' });
+  } catch (error) {
+    console.error('Logout failed:', error);
+    return res.status(500).json({ error: 'ไม่สามารถออกจากระบบได้' });
   }
 });
 
@@ -663,14 +989,16 @@ app.post('/api/login', async (req, res) => {
 // -----------------------------------------------------
 app.get('/api/equipment-codes', async (req, res) => {
   try {
-    const { department } = req.query;
+    const requestedDepartment = typeof req.query.department === 'string' ? req.query.department : '';
+    const department = req.auth.role === 'admin' ? requestedDepartment : req.auth.department;
+    if (req.auth.role !== 'admin' && requestedDepartment && requestedDepartment !== req.auth.department) {
+      return res.status(403).json({ error: 'ไม่มีสิทธิ์ดูอุปกรณ์ของแผนกอื่น' });
+    }
     const baseSql = 'SELECT equipment_code, equipment_type, department, room FROM equipments WHERE status = ?';
     const params = ['active'];
-
     const sql = department
       ? `${baseSql} AND department = ? ORDER BY equipment_code ASC`
-      : `${baseSql} ORDER BY equipment_code ASC`;
-
+      : `${baseSql} AND 1 = 0 ORDER BY equipment_code ASC`;
     if (department) params.push(department);
 
     const [rows] = await db.query(sql, params);
@@ -685,12 +1013,14 @@ function inferTicketUrgency(issueDetail, equipment = {}) {
   const text = String(issueDetail || '').toLowerCase();
   const equipmentType = String(equipment.equipment_type || '').toLowerCase();
   const department = String(equipment.department || '').toLowerCase();
+  const urgentDepartments = ['icu', 'er', 'งานอุบัติเหตุฉุกเฉิน'];
+  const diagnosticDepartments = ['radiology', 'lab', 'pharmacy', 'งานรังสีวิทยา', 'งานเทคนิคการแพทย์', 'ระบบยา'];
   if (/เสียชีวิต|หยุดหายใจ|เครื่องช่วยหายใจ|ฉุกเฉิน|ไฟไหม้|ผู้ป่วย|กระทบชีวิต/.test(text)) return 'critical';
-  if ((/ventilator|defibrillator|oxygen/.test(equipmentType) && ['icu', 'er'].includes(department))
+  if ((/ventilator|defibrillator|oxygen/.test(equipmentType) && urgentDepartments.includes(department))
     || /ใช้ไม่ได้|เปิดไม่ติด|ระบบล่ม|ด่วน|เร่งด่วน|ต้องรีบ|รีบ|กระทบทั้งแผนก|เครื่องเสีย|ไม่ทำงาน|ดับ/.test(text)) return 'high';
   if (/ventilator|defibrillator|oxygen|infusion|iv pump|ct scanner|mri scanner|x-ray/.test(equipmentType)
-    || ['icu', 'er'].includes(department)) return 'high';
-  if (/ช้า|ผิดพลาด|แจ้งเตือน|พิมพ์ไม่ได้/.test(text) || ['radiology', 'lab', 'pharmacy'].includes(department)) return 'medium';
+    || urgentDepartments.includes(department)) return 'high';
+  if (/ช้า|ผิดพลาด|แจ้งเตือน|พิมพ์ไม่ได้/.test(text) || diagnosticDepartments.includes(department)) return 'medium';
   return 'low';
 }
 
@@ -701,18 +1031,24 @@ function inferTicketUrgency(issueDetail, equipment = {}) {
 // -----------------------------------------------------
 app.post('/api/tickets', async (req, res) => {
   try {
-    const { equipmentCode, issueDetail, userId = 2 } = req.body;
+    if (req.auth.role !== 'user') {
+      return res.status(403).json({ error: 'การแจ้งซ่อมต้องใช้บัญชีผู้ใช้ทั่วไป' });
+    }
+    const { equipmentCode, issueDetail } = req.body;
     const ticketCategoryRaw = req.body && typeof req.body.ticketCategory === 'string' ? String(req.body.ticketCategory).trim().toLowerCase() : '';
     const ticketCategory = ['hardware', 'software'].includes(ticketCategoryRaw) ? ticketCategoryRaw : 'hardware';
 
-    if (!equipmentCode || !issueDetail) {
+    if (typeof equipmentCode !== 'string' || typeof issueDetail !== 'string'
+      || !equipmentCode.trim() || !issueDetail.trim() || issueDetail.length > 4000) {
       return res.status(400).json({ error: 'กรุณากรอกรหัสอุปกรณ์และรายละเอียดปัญหา' });
     }
 
     const normalizedCode = equipmentCode.trim().toUpperCase();
     const [equipmentRow] = await db.query(
-      'SELECT equipment_id, equipment_type, department, room FROM equipments WHERE equipment_code = ?',
-      [normalizedCode]
+      `SELECT equipment_id, equipment_type, department, room
+       FROM equipments
+       WHERE equipment_code = ? AND status = 'active' AND department = ?`,
+      [normalizedCode, req.auth.department]
     );
 
     if (!equipmentRow.length) {
@@ -728,22 +1064,18 @@ app.post('/api/tickets', async (req, res) => {
     }
 
     // Fetch user display name for fallback if reporterName not provided
-    const [userRows] = await db.query(
-      'SELECT full_name FROM users WHERE user_id = ?',
-      [Number(userId)]
-    );
-
     const rawReporterName = req.body && typeof req.body.reporterName === 'string' ? String(req.body.reporterName).trim() : '';
     const rawReporterUsername = req.body && typeof req.body.reporterUsername === 'string' ? String(req.body.reporterUsername).trim() : '';
 
-    const reporterName = rawReporterName.length > 0 ? rawReporterName : (userRows[0]?.full_name || 'Unknown User');
-    const reporterUsername = rawReporterUsername.length > 0 ? rawReporterUsername : null;
-    const urgency = inferTicketUrgency(issueDetail, equipmentRow[0]);
+    const reporterName = rawReporterName.slice(0, 255) || req.auth.full_name;
+    const reporterUsername = req.auth.username;
+    const normalizedIssueDetail = issueDetail.trim();
+    const urgency = inferTicketUrgency(normalizedIssueDetail, equipmentRow[0]);
 
     const [result] = await db.query(
       `INSERT INTO tickets (user_id, equipment_id, issue_detail, status, admin_id, repair_note, reporter_name, reporter_username, ticket_category, urgency)
        VALUES (?, ?, ?, 'pending', NULL, NULL, ?, ?, ?, ?)`,
-      [Number(userId), equipmentRow[0].equipment_id, issueDetail.trim(), reporterName, reporterUsername, ticketCategory, urgency]
+      [req.auth.user_id, equipmentRow[0].equipment_id, normalizedIssueDetail, reporterName, reporterUsername, ticketCategory, urgency]
     );
 
     // Re-query the inserted ticket to ensure we use the exact stored reporter_name/reporter_username
@@ -759,7 +1091,7 @@ app.post('/api/tickets', async (req, res) => {
       ticketId: result.insertId,
       userName: savedReporterName,
       reporterUsername: savedReporterUsername,
-      issueDetail: issueDetail.trim(),
+      issueDetail: normalizedIssueDetail,
       createdAt: new Date().toISOString()
     });
 
@@ -784,7 +1116,7 @@ app.post('/api/tickets', async (req, res) => {
 // -----------------------------------------------------
 app.get('/api/tickets', async (req, res) => {
   try {
-    const { userId, status, category, createdFrom, createdTo, search, activeOnly, pendingOnly, workingOnly, completedOnly } = req.query;
+    const { status, category, createdFrom, createdTo, search, activeOnly, pendingOnly, workingOnly, completedOnly } = req.query;
     const baseQuery = `
       SELECT
         t.ticket_id,
@@ -816,9 +1148,16 @@ app.get('/api/tickets', async (req, res) => {
     const queryParams = [];
     const conditions = [];
 
-    if (userId) {
+    if (req.auth.role === 'user') {
       conditions.push('t.user_id = ?');
-      queryParams.push(Number(userId));
+      queryParams.push(req.auth.user_id);
+    } else if (req.query.userId) {
+      const requestedUserId = Number(req.query.userId);
+      if (!Number.isSafeInteger(requestedUserId) || requestedUserId <= 0) {
+        return res.status(400).json({ error: 'รหัสผู้ใช้ไม่ถูกต้อง' });
+      }
+      conditions.push('t.user_id = ?');
+      queryParams.push(requestedUserId);
     }
 
     if (status && ['pending', 'in_progress', 'completed'].includes(status)) {
@@ -937,15 +1276,7 @@ app.get('/api/tickets', async (req, res) => {
 // -----------------------------------------------------
 app.get('/api/admin/tickets/export', async (req, res) => {
   try {
-    const adminId = Number(req.query.adminId || 0);
-    if (!adminId) {
-      return res.status(401).json({ error: 'กรุณาเข้าสู่ระบบก่อนดาวน์โหลด' });
-    }
-
-    const [adminRows] = await db.query('SELECT user_id FROM users WHERE user_id = ? AND role = ?', [adminId, 'admin']);
-    if (!adminRows.length) {
-      return res.status(403).json({ error: 'ไม่อนุญาตให้ดาวน์โหลดไฟล์นี้' });
-    }
+    if (!requireAdmin(req, res)) return;
 
     const { status, category, createdFrom, createdTo, search } = req.query;
     const baseQuery = `
@@ -1143,8 +1474,16 @@ app.get('/api/admin/tickets/export', async (req, res) => {
 // -----------------------------------------------------
 app.put('/api/tickets/:ticketId', async (req, res) => {
   try {
+    if (!requireAdmin(req, res)) return;
     const ticketId = Number(req.params.ticketId);
-    const { status, repairNote, adminId = 1, reportedAt, completedAt } = req.body;
+    const { status, repairNote, reportedAt, completedAt } = req.body;
+    if (!Number.isSafeInteger(ticketId) || ticketId <= 0) {
+      return res.status(400).json({ error: 'รหัส Ticket ไม่ถูกต้อง' });
+    }
+    if (repairNote !== undefined && repairNote !== null
+      && (typeof repairNote !== 'string' || repairNote.length > 10000)) {
+      return res.status(400).json({ error: 'หมายเหตุการซ่อมไม่ถูกต้องหรือยาวเกินไป' });
+    }
 
     if (status !== undefined && !['pending', 'in_progress', 'completed'].includes(status)) {
       return res.status(400).json({ error: 'สถานะไม่ถูกต้อง' });
@@ -1192,14 +1531,18 @@ app.put('/api/tickets/:ticketId', async (req, res) => {
     params.push(repairNote?.trim() || null);
 
     fields.push('admin_id = ?');
-    params.push(Number(adminId));
+    params.push(req.auth.user_id);
 
-    await db.query(
+    const [result] = await db.query(
       `UPDATE tickets
        SET ${fields.join(', ')}
        WHERE ticket_id = ?`,
       [...params, ticketId]
     );
+    if (!result.affectedRows) {
+      const [rows] = await db.query('SELECT ticket_id FROM tickets WHERE ticket_id = ?', [ticketId]);
+      if (!rows.length) return res.status(404).json({ error: 'ไม่พบ Ticket นี้' });
+    }
 
     res.json({ message: 'อัปเดตสถานะ ticket สำเร็จ' });
   } catch (error) {
@@ -1215,9 +1558,12 @@ app.put('/api/tickets/:ticketId', async (req, res) => {
 // -----------------------------------------------------
 app.post('/api/admin/tickets', async (req, res) => {
   try {
-    const { reporterName, reporterUsername, equipmentCode, ticketCategory, issueDetail, repairNote, createdDate, completedDate, adminId = 1 } = req.body;
+    if (!requireAdmin(req, res)) return;
+    const { reporterName, reporterUsername, equipmentCode, ticketCategory, issueDetail, repairNote, createdDate, completedDate } = req.body;
 
-    if (!reporterName || !equipmentCode || !issueDetail) {
+    if (typeof reporterName !== 'string' || !reporterName.trim()
+      || typeof equipmentCode !== 'string' || !equipmentCode.trim()
+      || typeof issueDetail !== 'string' || !issueDetail.trim() || issueDetail.length > 4000) {
       return res.status(400).json({ error: 'กรุณากรอกชื่อผู้แจ้ง อุปกรณ์ และรายละเอียดปัญหา' });
     }
 
@@ -1226,7 +1572,7 @@ app.post('/api/admin/tickets', async (req, res) => {
 
     const normalizedCode = String(equipmentCode).trim().toUpperCase();
     const [equipmentRow] = await db.query(
-      'SELECT equipment_id FROM equipments WHERE equipment_code = ?',
+      `SELECT equipment_id FROM equipments WHERE equipment_code = ? AND status = 'active'`,
       [normalizedCode]
     );
 
@@ -1257,7 +1603,7 @@ app.post('/api/admin/tickets', async (req, res) => {
     const [result] = await db.query(
       `INSERT INTO tickets (user_id, equipment_id, issue_detail, status, admin_id, repair_note, reporter_name, reporter_username, ticket_category, reported_at, completed_at, created_at, updated_at)
        VALUES (?, ?, ?, 'completed', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [1, equipmentRow[0].equipment_id, issueDetail.trim(), Number(adminId), repairNote?.trim() || null, reporterName.trim(), reporterUsername?.trim() || null, finalCategory, reportedAtStr, completedAtStr, reportedAtStr, completedAtStr]
+      [req.auth.user_id, equipmentRow[0].equipment_id, issueDetail.trim(), req.auth.user_id, typeof repairNote === 'string' ? repairNote.trim() : null, reporterName.trim().slice(0, 255), typeof reporterUsername === 'string' ? reporterUsername.trim().slice(0, 100) : null, finalCategory, reportedAtStr, completedAtStr, reportedAtStr, completedAtStr]
     );
 
     res.status(201).json({

@@ -39,9 +39,15 @@ themeToggleButton.addEventListener('click', () => {
 // - เติมข้อมูลลงใน dropdown สำหรับการแจ้งซ่อม
 // -----------------------------------------------------
 async function loadSupportedCodes(department) {
+  if (!department) {
+    equipmentCodeSelect.innerHTML = '<option value="" disabled selected>บัญชียังไม่ได้ระบุแผนก</option>';
+    equipmentHelp.textContent = 'กรุณาติดต่อผู้ดูแลระบบเพื่อกำหนดแผนกให้บัญชีของคุณ';
+    equipmentCodeSelect.disabled = true;
+    return;
+  }
+
   try {
-    const query = department ? `?department=${encodeURIComponent(department)}` : '';
-    const response = await fetch(`/api/equipment-codes${query}`);
+    const response = await fetch(`/api/equipment-codes?department=${encodeURIComponent(department)}`);
     const equipmentList = await response.json();
     equipmentCodeSelect.innerHTML = '';
 
@@ -60,9 +66,7 @@ async function loadSupportedCodes(department) {
       equipmentCodeSelect.appendChild(option);
     });
 
-    equipmentHelp.textContent = department
-      ? `เลือกอุปกรณ์จากแผนก ${department}`
-      : 'เลือกอุปกรณ์ที่รองรับในระบบ';
+    equipmentHelp.textContent = `เลือกอุปกรณ์จากแผนก ${department}`;
     equipmentCodeSelect.disabled = false;
   } catch (error) {
     equipmentCodeSelect.innerHTML = '<option value="" disabled>ไม่สามารถโหลดข้อมูลได้</option>';
@@ -143,9 +147,13 @@ ticketForm.addEventListener('submit', async (event) => {
   }
 });
 
-logoutButton.addEventListener('click', () => {
-  localStorage.removeItem('helpdeskAuth');
-  window.location.href = '/';
+logoutButton.addEventListener('click', async () => {
+  try {
+    await fetch('/api/logout', { method: 'POST' });
+  } finally {
+    localStorage.removeItem('helpdeskAuth');
+    window.location.href = '/';
+  }
 });
 
 // -----------------------------------------------------

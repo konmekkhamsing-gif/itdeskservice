@@ -39,7 +39,6 @@ const cancelManagedUserEditButton = document.getElementById('cancelManagedUserEd
 const userManagementMessage = document.getElementById('userManagementMessage');
 const managedUsersTableBody = document.getElementById('managedUsersTableBody');
 const adminCreateTicketForm = document.getElementById('adminCreateTicketForm');
-let userManagementAdminPassword = '';
 const cancelCreateButton = document.getElementById('cancelCreateButton');
 const creatorDepartment = document.getElementById('creatorDepartment');
 const creatorEquipment = document.getElementById('creatorEquipment');
@@ -50,6 +49,72 @@ const creatorUsername = document.getElementById('creatorUsername');
 const creatorCategory = document.getElementById('creatorCategory');
 const creatorIssueDetail = document.getElementById('creatorIssueDetail');
 const creatorRepairNote = document.getElementById('creatorRepairNote');
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (character) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[character]);
+}
+
+const departmentOptions = [
+  'งานเวชศาสตร์ครอบครัวและบริการด้านปฐมภูมิ',
+  'องค์กรแพทย์',
+  'งานผู้ป่วยนอก',
+  'งานอุบัติเหตุฉุกเฉิน',
+  'งานผู้ป่วยใน ตึก1',
+  'งานห้องคลอด',
+  'คลินิคพิเศษ ARV,TB-ASTHMA',
+  'ระบบยา',
+  'งานเทคนิคการแพทย์',
+  'งานกายภาพบำบัด',
+  'งานรังสีวิทยา',
+  'งานแพทย์แผนไทย',
+  'งานโภชนาการ/โรงครัว',
+  'งานเวชระเบียน/ห้องบัตร',
+  'งานจ่ายกลาง',
+  'งานประกันสุขภาพ',
+  'งานธุรการ',
+  'งานยานพาหนะ',
+  'งานสนาม/ซ่อมบำรุง',
+  'กลุ่มการพยาบาล',
+  'งานทันตสาธารณสุข',
+  'จุดคัดกรอง',
+  'คลินิกNCD',
+  'งานการเงิน/บัญชี',
+  'งานพัสดุ',
+  'งานซักฟอก',
+  'ทีม IC',
+  'ทีม ENV',
+  'ทีมPCT',
+  'คณะกรรมการบริหารและ HRD',
+  'งานฝากครรภ์',
+  'งานทำความสะอาด',
+  'จุดซักประวัติระบบทางเดินหายใจ (ARI)',
+  'จิตเวชและยาเสพติด',
+  'งานผู้ป่วยใน ตึก2',
+  'พัฒนาการเด็ก(PCU)',
+  'พัฒนาการเด็ก(จิตเวช)',
+  'ห้องผ่าตัด',
+  'งานเทคโนโลยีสารสนเทศ'
+];
+
+function populateDepartmentSelect(select) {
+  select.replaceChildren();
+  const placeholder = document.createElement('option');
+  placeholder.value = '';
+  placeholder.textContent = '-- เลือกแผนก --';
+  select.appendChild(placeholder);
+
+  departmentOptions.forEach((department) => {
+    const option = document.createElement('option');
+    option.value = department;
+    option.textContent = department;
+    select.appendChild(option);
+  });
+}
+
+populateDepartmentSelect(creatorDepartment);
+populateDepartmentSelect(managedDepartment);
 
 const urgencyConfig = {
   critical: { label: 'ด่วนมาก', className: 'bg-red-100 text-red-800 border-red-300' },
@@ -206,10 +271,10 @@ async function loadNotifications() {
       <div class="notification-card rounded-2xl bg-rose-50 border border-rose-100 p-3">
         <div class="flex justify-between items-start gap-3">
           <div>
-            <div class="font-semibold text-slate-800">Ticket #${item.ticketId} จาก ${item.userName}${item.reporterUsername ? ' (' + item.reporterUsername + ')' : ''}</div>
-            <div class="text-sm text-slate-600 mt-1">${item.issueDetail || 'ไม่มีรายละเอียด'}</div>
+            <div class="font-semibold text-slate-800">Ticket #${escapeHtml(item.ticketId)} จาก ${escapeHtml(item.userName)}${item.reporterUsername ? ' (' + escapeHtml(item.reporterUsername) + ')' : ''}</div>
+            <div class="text-sm text-slate-600 mt-1">${escapeHtml(item.issueDetail || 'ไม่มีรายละเอียด')}</div>
           </div>
-          <div class="text-xs text-slate-500 whitespace-nowrap">${new Date(item.createdAt).toLocaleString('th-TH')}</div>
+          <div class="text-xs text-slate-500 whitespace-nowrap">${escapeHtml(new Date(item.createdAt).toLocaleString('th-TH'))}</div>
         </div>
       </div>
     `).join('')
@@ -238,46 +303,49 @@ async function loadTickets() {
   ticketTableBody.innerHTML = tickets.length ? tickets.map((ticket, index) => {
     const showAccept = ticket.status === 'pending';
     const showClose = ticket.status === 'in_progress';
-    const urgency = urgencyConfig[ticket.urgency] || urgencyConfig.medium;
+    const urgencyKey = Object.prototype.hasOwnProperty.call(urgencyConfig, ticket.urgency)
+      ? ticket.urgency
+      : 'medium';
+    const urgency = urgencyConfig[urgencyKey];
     const isCompletedGroupStart = ticket.status === 'completed'
       && (index === 0 || tickets[index - 1].status !== 'completed');
 
     return `
-    <tr class="align-top ticket-urgency-row ${isCompletedGroupStart ? 'completed-group-start' : ''} ${ticket.status === 'completed' ? 'completed-row' : ''} ${ticket.urgency === 'critical' ? 'critical bg-red-50' : ticket.urgency === 'high' ? 'high bg-orange-50' : ''}">
-      <td class="px-4 py-4 text-sm text-slate-900 font-semibold">#${ticket.ticket_id}</td>
-      <td class="px-4 py-4 text-sm text-slate-800">${ticket.user_name || 'Unknown User'}</td>
+    <tr class="align-top ticket-urgency-row ${isCompletedGroupStart ? 'completed-group-start' : ''} ${ticket.status === 'completed' ? 'completed-row' : ''} ${urgencyKey === 'critical' ? 'critical bg-red-50' : urgencyKey === 'high' ? 'high bg-orange-50' : ''}">
+      <td class="px-4 py-4 text-sm text-slate-900 font-semibold">#${escapeHtml(ticket.ticket_id)}</td>
+      <td class="px-4 py-4 text-sm text-slate-800">${escapeHtml(ticket.user_name || 'Unknown User')}</td>
       <td class="px-4 py-4 text-sm text-slate-800">
-        <div class="font-medium">${ticket.equipment_code}</div>
-        <div class="text-xs text-slate-500">${ticket.equipment_type || ''}</div>
-        <div class="text-xs text-slate-500">${ticket.department || ''} • ${ticket.room || ''}</div>
+        <div class="font-medium">${escapeHtml(ticket.equipment_code)}</div>
+        <div class="text-xs text-slate-500">${escapeHtml(ticket.equipment_type || '')}</div>
+        <div class="text-xs text-slate-500">${escapeHtml(ticket.department || '')} • ${escapeHtml(ticket.room || '')}</div>
       </td>
       <td class="px-4 py-4 text-sm text-slate-800">${ticket.ticket_category === 'software' ? 'Software' : 'Hardware'}</td>
       <td class="px-4 py-4 text-sm">
-        <span class="ticket-urgency-badge rounded-full border px-3 py-1 text-xs font-semibold ${ticket.urgency || 'medium'} ${urgency.className}">${urgency.label}</span>
+        <span class="ticket-urgency-badge rounded-full border px-3 py-1 text-xs font-semibold ${urgencyKey} ${urgency.className}">${urgency.label}</span>
       </td>
       <td class="px-4 py-4 text-sm text-slate-800">
-        <div class="font-medium">${ticket.reporter_name || ticket.user_name || 'Unknown'}</div>
-        <div class="text-xs text-slate-500">${ticket.reporter_username || ''}</div>
+        <div class="font-medium">${escapeHtml(ticket.reporter_name || ticket.user_name || 'Unknown')}</div>
+        <div class="text-xs text-slate-500">${escapeHtml(ticket.reporter_username || '')}</div>
       </td>
-      <td class="px-4 py-4 text-sm text-slate-800 max-w-xs leading-6">${ticket.issue_detail}</td>
+      <td class="px-4 py-4 text-sm text-slate-800 max-w-xs leading-6">${escapeHtml(ticket.issue_detail)}</td>
       <td class="px-4 py-4 text-sm text-slate-800">
         <div class="space-y-2">
-          <div><span class="font-medium">แจ้ง:</span> ${formatDateTime(ticket.reported_at || ticket.created_at)}</div>
+          <div><span class="font-medium">แจ้ง:</span> ${escapeHtml(formatDateTime(ticket.reported_at || ticket.created_at))}</div>
           
         </div>
       </td>
       <td class="px-4 py-4 text-sm">
-        <span class="status-badge px-3 py-1 rounded-full text-xs font-semibold ${statusClass(ticket.status)}${ticket.status === 'completed' ? ' status-completed' : ''}">${ticket.status.replace('_', ' ')}</span>
+        <span class="status-badge px-3 py-1 rounded-full text-xs font-semibold ${statusClass(ticket.status)}${ticket.status === 'completed' ? ' status-completed' : ''}">${escapeHtml(String(ticket.status || '').replace('_', ' '))}</span>
       </td>
       <td class="px-4 py-4 text-sm text-slate-800">
-        <textarea data-note="${ticket.ticket_id}" rows="3" class="w-full border border-slate-200 rounded-xl p-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 repair-note">${ticket.repair_note || ''}</textarea>
+        <textarea data-note="${escapeHtml(ticket.ticket_id)}" rows="3" class="w-full border border-slate-200 rounded-xl p-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 repair-note">${escapeHtml(ticket.repair_note || '')}</textarea>
       </td>
       <td class="px-4 py-4 text-sm">
         <div class="flex flex-col gap-2">
-          ${showAccept ? `<button data-action="accept" data-id="${ticket.ticket_id}" class="bg-blue-600 text-white px-3 py-2 rounded-xl hover:bg-blue-700 hover:-translate-y-0.5 transition-all duration-200">รับงาน</button>` : ''}
-          ${showClose ? `<label class="text-xs text-slate-600">วันและเวลาเสร็จงาน<input data-completed-at="${ticket.ticket_id}" type="datetime-local" value="${toDateTimeLocal(ticket.completed_at)}" class="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1 text-sm" /></label>` : ''}
-          ${showClose ? `<button data-action="close" data-id="${ticket.ticket_id}" class="bg-emerald-600 text-white px-3 py-2 rounded-xl hover:bg-emerald-700 hover:-translate-y-0.5 transition-all duration-200">ปิดงาน</button>` : ''}
-          <button data-action="save" data-id="${ticket.ticket_id}" class="bg-slate-600 text-white px-3 py-2 rounded-xl hover:bg-slate-700 hover:-translate-y-0.5 transition-all duration-200">บันทึกหมายเหตุ</button>
+          ${showAccept ? `<button data-action="accept" data-id="${escapeHtml(ticket.ticket_id)}" class="bg-blue-600 text-white px-3 py-2 rounded-xl hover:bg-blue-700 hover:-translate-y-0.5 transition-all duration-200">รับงาน</button>` : ''}
+          ${showClose ? `<label class="text-xs text-slate-600">วันและเวลาเสร็จงาน<input data-completed-at="${escapeHtml(ticket.ticket_id)}" type="datetime-local" value="${escapeHtml(toDateTimeLocal(ticket.completed_at))}" class="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1 text-sm" /></label>` : ''}
+          ${showClose ? `<button data-action="close" data-id="${escapeHtml(ticket.ticket_id)}" class="bg-emerald-600 text-white px-3 py-2 rounded-xl hover:bg-emerald-700 hover:-translate-y-0.5 transition-all duration-200">ปิดงาน</button>` : ''}
+          <button data-action="save" data-id="${escapeHtml(ticket.ticket_id)}" class="bg-slate-600 text-white px-3 py-2 rounded-xl hover:bg-slate-700 hover:-translate-y-0.5 transition-all duration-200">บันทึกหมายเหตุ</button>
           ${ticket.status === 'completed' ? '<span class="inline-block rounded-full bg-emerald-100 text-emerald-700 px-2.5 py-1 text-xs font-semibold">เสร็จสิ้น</span>' : ''}
         </div>
       </td>
@@ -307,10 +375,7 @@ async function loadTickets() {
       }
 
       try {
-        const body = {
-          repairNote: note,
-          adminId: auth.userId
-        };
+        const body = { repairNote: note };
         if (status) body.status = status;
         if (button.dataset.action === 'close') {
           const completedAt = document.querySelector(`[data-completed-at="${ticketId}"]`).value;
@@ -385,8 +450,8 @@ async function loadManagedUsers() {
   userManagementMessage.textContent = 'กำลังโหลดรายชื่อผู้ใช้...';
   userManagementMessage.className = 'text-sm text-slate-500 md:col-span-2';
   try {
-    const response = await fetch(`/api/admin/users?adminId=${encodeURIComponent(auth.userId)}`, {
-      headers: { 'X-Admin-Password': userManagementAdminPassword }
+    const response = await fetch('/api/admin/users', {
+      credentials: 'same-origin'
     });
     const users = await response.json();
     if (!response.ok) throw new Error(users.error || 'ไม่สามารถดึงรายชื่อผู้ใช้ได้');
@@ -425,7 +490,6 @@ async function loadManagedUsers() {
     userManagementMessage.textContent = '';
     return true;
   } catch (error) {
-    if (error.message === 'ไม่อนุญาตให้จัดการผู้ใช้งาน') userManagementAdminPassword = '';
     userManagementMessage.textContent = error.message;
     userManagementMessage.className = 'text-sm text-red-600 md:col-span-2';
     return false;
@@ -434,14 +498,6 @@ async function loadManagedUsers() {
 
 manageUsersButton.addEventListener('click', async () => {
   if (!requireLogin()) return;
-  const password = window.prompt('กรอกรหัสผ่านแอดมินเพื่อยืนยันการจัดการบัญชีผู้ใช้');
-  if (password === null) return;
-  if (!password) {
-    userManagementMessage.textContent = 'กรุณากรอกรหัสผ่านแอดมิน';
-    userManagementMessage.className = 'text-sm text-red-600 md:col-span-2';
-    return;
-  }
-  userManagementAdminPassword = password;
   createTicketSection.classList.add('hidden');
   manageTicketsSection.classList.add('hidden');
   ticketFiltersSection.classList.add('hidden');
@@ -481,7 +537,6 @@ userManagementForm.addEventListener('submit', async (event) => {
 
   const isEditing = Boolean(managedUserId.value);
   const payload = {
-    adminId: auth.userId,
     username: managedUsername.value.trim(),
     fullName: managedFullName.value.trim(),
     department: managedDepartment.value.trim()
@@ -497,8 +552,7 @@ userManagementForm.addEventListener('submit', async (event) => {
       {
         method: isEditing ? 'PUT' : 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'X-Admin-Password': userManagementAdminPassword
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify(payload)
       }
@@ -512,7 +566,6 @@ userManagementForm.addEventListener('submit', async (event) => {
       userManagementMessage.className = 'text-sm text-green-700 md:col-span-2';
     }
   } catch (error) {
-    if (error.message === 'ไม่อนุญาตให้จัดการผู้ใช้งาน') userManagementAdminPassword = '';
     userManagementMessage.textContent = error.message;
     userManagementMessage.className = 'text-sm text-red-600 md:col-span-2';
   } finally {
@@ -538,7 +591,11 @@ creatorDepartment.addEventListener('change', async () => {
   try {
     const response = await fetch(`/api/equipment-codes?department=${encodeURIComponent(dept)}`);
     const equipments = await response.json();
-    creatorEquipment.innerHTML = '<option value="">-- เลือกอุปกรณ์ --</option>' + equipments.map(e => `<option value="${e.equipment_code}">${e.equipment_code} (${e.equipment_type})</option>`).join('');
+    const options = [new Option('-- เลือกอุปกรณ์ --', '')];
+    equipments.forEach((equipment) => {
+      options.push(new Option(`${equipment.equipment_code} (${equipment.equipment_type})`, equipment.equipment_code));
+    });
+    creatorEquipment.replaceChildren(...options);
   } catch (error) {
     console.error(error);
   }
@@ -560,8 +617,7 @@ adminCreateTicketForm.addEventListener('submit', async (e) => {
     issueDetail: creatorIssueDetail.value.trim(),
     repairNote: creatorRepairNote.value.trim(),
     createdDate: createdDate.value,
-    completedDate: completedDate.value || null,
-    adminId: auth.userId
+    completedDate: completedDate.value || null
   };
 
   try {
@@ -580,8 +636,7 @@ adminCreateTicketForm.addEventListener('submit', async (e) => {
       body: JSON.stringify({
         status: 'completed',
         completedAt: payload.completedDate ? new Date(payload.completedDate).toISOString() : null,
-        repairNote: payload.repairNote,
-        adminId: auth.userId
+        repairNote: payload.repairNote
       })
     });
     const completionResult = await completionResponse.json();
@@ -609,7 +664,6 @@ exportExcelButton.addEventListener('click', () => {
   if (filterFromDate.value) query.set('createdFrom', filterFromDate.value);
   if (filterToDate.value) query.set('createdTo', filterToDate.value);
   if (filterSearch.value.trim()) query.set('search', filterSearch.value.trim());
-  query.set('adminId', auth.userId);
   window.location.href = `/api/admin/tickets/export?${query.toString()}`;
 });
 
@@ -634,9 +688,13 @@ resetFiltersButton.addEventListener('click', () => {
   loadTickets();
 });
 
-logoutButton.addEventListener('click', () => {
-  localStorage.removeItem('helpdeskAuth');
-  window.location.href = '/';
+logoutButton.addEventListener('click', async () => {
+  try {
+    await fetch('/api/logout', { method: 'POST' });
+  } finally {
+    localStorage.removeItem('helpdeskAuth');
+    window.location.href = '/';
+  }
 });
 
 // -----------------------------------------------------

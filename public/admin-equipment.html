@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>จัดการอุปกรณ์ - Hospital Helpdesk</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/motion.css" />
+  <style>
+    body {
+      background:
+        radial-gradient(ellipse at 12% 8%, rgba(56, 189, 248, 0.25), transparent 34%),
+        radial-gradient(ellipse at 88% 38%, rgba(45, 212, 191, 0.18), transparent 32%),
+        linear-gradient(145deg, #f8fbff 0%, #edf6ff 55%, #eefaf8 100%);
+      background-attachment: fixed;
+      font-family: Inter, "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    }
+    body.dark-mode { color: #e2e8f0; background: linear-gradient(145deg, #020617 0%, #0b1729 55%, #0b1e24 100%); }
+    body.dark-mode .card { background: rgba(15, 23, 42, 0.94); border-color: #334155; }
+    body.dark-mode .text-slate-900, body.dark-mode .text-slate-800, body.dark-mode .text-slate-700, body.dark-mode .text-slate-600, body.dark-mode .text-slate-500 { color: #e2e8f0; }
+    body.dark-mode input, body.dark-mode select { background: #0f172a; color: #e2e8f0; border-color: #334155; }
+    body.dark-mode .bg-slate-50, body.dark-mode .bg-white { background: #0f172a; }
+  </style>
+</head>
+<body class="min-h-screen text-slate-800">
+  <main class="relative z-10 mx-auto max-w-7xl px-4 py-8">
+    <header class="mb-6 rounded-[30px] border border-white/20 bg-gradient-to-r from-cyan-800 to-teal-700 p-6 text-white shadow-2xl">
+      <div class="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 class="text-3xl font-bold">จัดการอุปกรณ์</h1>
+          <p class="mt-2 text-cyan-100">เพิ่ม แก้ไข และปิดใช้งานอุปกรณ์ พร้อมแสดงแผนกภาษาไทยกำกับรหัส</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <button id="themeToggleButton" type="button" class="rounded-xl border border-white/30 bg-white/15 px-4 py-2 text-white hover:bg-white/25">🌙 Dark Mode</button>
+          <a href="/admin-dashboard.html" class="rounded-xl border border-white/30 bg-white/15 px-4 py-2 text-white hover:bg-white/25">Dashboard</a>
+          <a href="/admin.html" class="rounded-xl border border-white/30 bg-white/15 px-4 py-2 text-white hover:bg-white/25">จัดการ Ticket</a>
+          <button id="logoutButton" type="button" class="rounded-xl border border-white/30 bg-white/15 px-4 py-2 text-white hover:bg-white/25">ออกจากระบบ</button>
+        </div>
+      </div>
+    </header>
+
+    <div id="equipmentManager">
+    <section class="card mb-6 rounded-[28px] border border-slate-100 bg-white/95 p-6 shadow-xl">
+      <h2 id="formTitle" class="mb-5 text-2xl font-semibold">เพิ่มอุปกรณ์</h2>
+      <form id="equipmentForm" class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div>
+          <label for="equipmentCode" class="mb-1 block text-sm font-medium text-slate-700">รหัสอุปกรณ์ *</label>
+          <input id="equipmentCode" maxlength="50" placeholder="เช่น VENT-งานอุบัติเหตุฉุกเฉิน-08" required class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2 text-slate-800" />
+          <p class="mt-1 text-xs text-slate-500">ใช้รูปแบบ PREFIX-ชื่อแผนก-ลำดับ โดยชื่อแผนกต้องตรงกับแผนกที่เลือก</p>
+        </div>
+        <div>
+          <label for="equipmentType" class="mb-1 block text-sm font-medium text-slate-700">ประเภทอุปกรณ์ *</label>
+          <input id="equipmentType" maxlength="50" placeholder="เช่น Computer" required class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2 text-slate-800" />
+        </div>
+        <div>
+          <label for="equipmentDepartment" class="mb-1 block text-sm font-medium text-slate-700">แผนก *</label>
+          <select id="equipmentDepartment" required class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2 text-slate-800">
+            <option value="">กำลังโหลดรายการแผนก...</option>
+          </select>
+        </div>
+        <div>
+          <label for="equipmentRoom" class="mb-1 block text-sm font-medium text-slate-700">ห้อง/สถานที่ *</label>
+          <input id="equipmentRoom" maxlength="100" placeholder="เช่น ห้องตรวจ 1" required class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2 text-slate-800" />
+        </div>
+        <div>
+          <label for="equipmentStatus" class="mb-1 block text-sm font-medium text-slate-700">สถานะ *</label>
+          <select id="equipmentStatus" required class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2 text-slate-800">
+            <option value="active">เปิดใช้งาน</option>
+            <option value="inactive">ปิดใช้งาน</option>
+          </select>
+        </div>
+        <div class="flex flex-wrap items-end gap-3">
+          <button id="saveEquipmentButton" type="submit" class="rounded-xl bg-cyan-700 px-5 py-2 font-semibold text-white hover:bg-cyan-800">เพิ่มอุปกรณ์</button>
+          <button id="cancelEquipmentEditButton" type="button" class="hidden rounded-xl border border-slate-300 px-5 py-2 text-slate-700 hover:bg-slate-50">ยกเลิกแก้ไข</button>
+        </div>
+        <p id="equipmentMessage" class="text-sm md:col-span-2 xl:col-span-3" role="status" aria-live="polite"></p>
+      </form>
+    </section>
+
+    <section class="card rounded-[28px] border border-slate-100 bg-white/95 p-6 shadow-xl">
+      <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 class="text-2xl font-semibold">รายการอุปกรณ์</h2>
+          <p id="equipmentCount" class="mt-1 text-sm text-slate-500">กำลังโหลด...</p>
+        </div>
+        <div class="flex flex-wrap gap-3">
+          <input id="equipmentSearch" type="search" placeholder="ค้นหารหัส/ประเภท/แผนก/ห้อง" class="min-w-64 rounded-xl border border-slate-300 bg-white px-4 py-2 text-slate-800" />
+          <select id="statusFilter" class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-slate-800">
+            <option value="">ทุกสถานะ</option>
+            <option value="active">เปิดใช้งาน</option>
+            <option value="inactive">ปิดใช้งาน</option>
+          </select>
+          <button id="reloadEquipmentButton" type="button" class="rounded-xl border border-slate-300 px-4 py-2 text-slate-700 hover:bg-slate-50">รีเฟรช</button>
+        </div>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-slate-200">
+          <thead class="bg-slate-50">
+            <tr>
+              <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-600">รหัส</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-600">ประเภท</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-600">แผนก</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-600">ห้อง/สถานที่</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-600">Ticket</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-600">สถานะ</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-600">จัดการ</th>
+            </tr>
+          </thead>
+          <tbody id="equipmentTableBody" class="divide-y divide-slate-100"></tbody>
+        </table>
+      </div>
+    </section>
+    </div>
+  </main>
+  <script src="admin-equipment.js"></script>
+</body>
+</html>

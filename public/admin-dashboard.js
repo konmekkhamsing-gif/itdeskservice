@@ -25,6 +25,12 @@ let statusChart;
 let departmentChart;
 let categoryChart;
 
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (character) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[character]);
+}
+
 // -----------------------------------------------------
 // ส่วนตั้งค่า Theme
 // -----------------------------------------------------
@@ -72,10 +78,10 @@ async function loadNotifications() {
       <div class="notification-card rounded-2xl bg-rose-50 border border-rose-100 p-3">
         <div class="flex justify-between items-start gap-3">
           <div>
-            <div class="font-semibold text-slate-800">Ticket #${item.ticketId} จาก ${item.userName}${item.reporterUsername ? ' (' + item.reporterUsername + ')' : ''}</div>
-            <div class="text-sm text-slate-600 mt-1">${item.issueDetail || 'ไม่มีรายละเอียด'}</div>
+            <div class="font-semibold text-slate-800">Ticket #${escapeHtml(item.ticketId)} จาก ${escapeHtml(item.userName)}${item.reporterUsername ? ' (' + escapeHtml(item.reporterUsername) + ')' : ''}</div>
+            <div class="text-sm text-slate-600 mt-1">${escapeHtml(item.issueDetail || 'ไม่มีรายละเอียด')}</div>
           </div>
-          <div class="text-xs text-slate-500 whitespace-nowrap">${new Date(item.createdAt).toLocaleString('th-TH')}</div>
+          <div class="text-xs text-slate-500 whitespace-nowrap">${escapeHtml(new Date(item.createdAt).toLocaleString('th-TH'))}</div>
         </div>
       </div>
     `).join('')
@@ -121,10 +127,10 @@ async function loadDashboardData() {
     ? analytics.byDepartment.map((item, index) => `
       <div class="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2">
         <div>
-          <div class="font-semibold text-slate-800">${index + 1}. ${item.department || 'ไม่ระบุแผนก'}</div>
+          <div class="font-semibold text-slate-800">${index + 1}. ${escapeHtml(item.department || 'ไม่ระบุแผนก')}</div>
           <div class="text-xs text-slate-500">จำนวน ticket</div>
         </div>
-        <div class="text-lg font-bold text-slate-800">${item.ticket_count}</div>
+        <div class="text-lg font-bold text-slate-800">${escapeHtml(item.ticket_count)}</div>
       </div>
     `).join('')
     : '<div class="text-sm text-slate-500">ไม่มีข้อมูล</div>';
@@ -133,10 +139,10 @@ async function loadDashboardData() {
     ? analytics.byEquipmentType.map((item, index) => `
       <div class="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2">
         <div>
-          <div class="font-semibold text-slate-800">${index + 1}. ${item.equipment_type || 'ไม่ระบุชนิด'}</div>
+          <div class="font-semibold text-slate-800">${index + 1}. ${escapeHtml(item.equipment_type || 'ไม่ระบุชนิด')}</div>
           <div class="text-xs text-slate-500">จำนวน ticket</div>
         </div>
-        <div class="text-lg font-bold text-slate-800">${item.ticket_count}</div>
+        <div class="text-lg font-bold text-slate-800">${escapeHtml(item.ticket_count)}</div>
       </div>
     `).join('')
     : '<div class="text-sm text-slate-500">ไม่มีข้อมูล</div>';
@@ -277,9 +283,13 @@ clearNotificationsButton.addEventListener('click', async () => {
   await loadNotifications();
 });
 
-logoutButton.addEventListener('click', () => {
-  localStorage.removeItem('helpdeskAuth');
-  window.location.href = '/';
+logoutButton.addEventListener('click', async () => {
+  try {
+    await fetch('/api/logout', { method: 'POST' });
+  } finally {
+    localStorage.removeItem('helpdeskAuth');
+    window.location.href = '/';
+  }
 });
 
 // -----------------------------------------------------

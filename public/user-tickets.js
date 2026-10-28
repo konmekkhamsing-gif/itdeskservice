@@ -14,6 +14,12 @@ const filterToDate = document.getElementById('filterToDate');
 const applyFiltersButton = document.getElementById('applyFiltersButton');
 const resetFiltersButton = document.getElementById('resetFiltersButton');
 
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (character) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[character]);
+}
+
 // -----------------------------------------------------
 // ส่วนตั้งค่า Theme
 // -----------------------------------------------------
@@ -123,16 +129,16 @@ async function loadMyTickets() {
         <div class="ticket-card border border-slate-200 rounded-2xl p-4 transition-transform duration-200 hover:-translate-y-0.5">
           <div class="flex justify-between items-center gap-3 flex-wrap">
             <div>
-              <p class="font-semibold text-slate-900">Ticket #${ticket.ticket_id}</p>
-              <p class="text-sm text-slate-500">${ticket.equipment_code}</p>
+              <p class="font-semibold text-slate-900">Ticket #${escapeHtml(ticket.ticket_id)}</p>
+              <p class="text-sm text-slate-500">${escapeHtml(ticket.equipment_code)}</p>
             </div>
-            <span class="px-3 py-1 rounded-full text-xs font-semibold ${statusColor}">${ticket.status.replace('_', ' ')}</span>
+            <span class="px-3 py-1 rounded-full text-xs font-semibold ${statusColor}">${escapeHtml(String(ticket.status || '').replace('_', ' '))}</span>
           </div>
-          <p class="mt-3 text-sm text-slate-700 leading-6">${ticket.issue_detail}</p>
+          <p class="mt-3 text-sm text-slate-700 leading-6">${escapeHtml(ticket.issue_detail || '')}</p>
           ${ticket.repair_note ? `
             <div class="mt-3 rounded-xl bg-emerald-50 border border-emerald-200 p-3">
               <p class="text-xs font-semibold text-emerald-700">หมายเหตุซ่อม</p>
-              <p class="mt-1 text-sm text-slate-700">${ticket.repair_note}</p>
+              <p class="mt-1 text-sm text-slate-700">${escapeHtml(ticket.repair_note)}</p>
             </div>
           ` : ''}
           <p class="mt-3 text-xs text-slate-500">ประเภท: ${ticket.ticket_category === 'software' ? 'Software' : 'Hardware'}</p>
@@ -145,9 +151,13 @@ async function loadMyTickets() {
   }
 }
 
-logoutButton.addEventListener('click', () => {
-  localStorage.removeItem('helpdeskAuth');
-  window.location.href = '/';
+logoutButton.addEventListener('click', async () => {
+  try {
+    await fetch('/api/logout', { method: 'POST' });
+  } finally {
+    localStorage.removeItem('helpdeskAuth');
+    window.location.href = '/';
+  }
 });
 
 // -----------------------------------------------------
